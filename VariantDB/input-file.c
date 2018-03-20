@@ -301,16 +301,16 @@ ERR_VALUE input_get_reads(const char *Filename, const char *InputType, PONE_READ
 
 
 
-ERR_VALUE input_filter_reads(const uint32_t KMerSize, const ONE_READ *Source, const size_t SourceCount, const uint64_t RegionStart, const size_t RegionLength, PGEN_ARRAY_ONE_READ NewReads)
+ERR_VALUE input_filter_reads(const ONE_READ *Source, const size_t SourceCount, const uint64_t RegionStart, const size_t RegionLength, PGEN_ARRAY_ONE_READ NewReads)
 {
 	const ONE_READ *r = NULL;
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
 	size_t firstIndex = (size_t)-1;
 	size_t lastIndex = (size_t)-1;
 
-	int leftBorder = 0;
-	int rightBorder = SourceCount - 1;
-	int currIndex = SourceCount / 2;
+	size_t leftBorder = 0;
+	size_t rightBorder = SourceCount - 1;
+	size_t currIndex = SourceCount / 2;
 
 	while (leftBorder <= rightBorder) {
 		r = Source + currIndex;
@@ -347,12 +347,9 @@ ERR_VALUE input_filter_reads(const uint32_t KMerSize, const ONE_READ *Source, co
 			for (size_t i = firstIndex; i <= lastIndex; ++i) {
 				ONE_READ tmp;
 
-				if (r->ReadSequenceLen > KMerSize) {
-					tmp = *r;
-					read_adjust(&tmp, RegionStart, RegionLength);
-					if (tmp.ReadSequenceLen > KMerSize)
-						dym_array_push_back_no_alloc_ONE_READ(NewReads, tmp);
-				}
+				tmp = *r;
+				read_adjust(&tmp, RegionStart, RegionLength);
+				dym_array_push_back_no_alloc_ONE_READ(NewReads, tmp);
 
 				++r;
 			}
