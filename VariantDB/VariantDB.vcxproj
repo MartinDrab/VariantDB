@@ -136,10 +136,12 @@
   <ItemGroup>
     <ClCompile Include="bfc.c" />
     <ClCompile Include="bseq.c" />
+    <ClCompile Include="drand48.c" />
     <ClCompile Include="file-utils.c" />
     <ClCompile Include="htab.c" />
     <ClCompile Include="input-file.c" />
     <ClCompile Include="internal.c" />
+    <ClCompile Include="kthread.c" />
     <ClCompile Include="librcorrect.c" />
     <ClCompile Include="options.c" />
     <ClCompile Include="reads.c" />
@@ -156,8 +158,10 @@
     <ClInclude Include="htab.h" />
     <ClInclude Include="input-file.h" />
     <ClInclude Include="internal.h" />
+    <ClInclude Include="khash.h" />
     <ClInclude Include="kseq.h" />
     <ClInclude Include="ksort.h" />
+    <ClInclude Include="kthread.h" />
     <ClInclude Include="kvec.h" />
     <ClInclude Include="librcorrect.h" />
     <ClInclude Include="options.h" />

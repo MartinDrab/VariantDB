@@ -51,6 +51,12 @@
     <ClCompile Include="variantdb.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="kthread.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="drand48.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="err.h">
@@ -105,6 +111,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="kthread.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="khash.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

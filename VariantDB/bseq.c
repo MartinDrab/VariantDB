@@ -1,4 +1,5 @@
 
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,8 +37,8 @@ bseq1_t *bseq_read(const char *fn, int *n_)
 			seqs = realloc(seqs, m * sizeof(bseq1_t));
 		}
 		s = &seqs[n];
-		s->seq = strdup(ks->seq.s);
-		s->qual = ks->qual.l? strdup(ks->qual.s) : 0;
+		s->seq = _strdup(ks->seq.s);
+		s->qual = ks->qual.l? _strdup(ks->qual.s) : 0;
 		s->l_seq = ks->seq.l;
 		size += seqs[n++].l_seq;
 	}
