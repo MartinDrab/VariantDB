@@ -4,7 +4,6 @@
 
 
 #include "err.h"
-#include "variant.h"
 
 
 typedef struct _SSW_STATISTICS {
