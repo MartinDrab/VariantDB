@@ -245,7 +245,7 @@ void fasta_free(PFASTA_FILE FastaRecord)
 }
 
 
-ERR_VALUE input_get_reads(const char *Filename, const char *InputType, PONE_READ *Reads, size_t *ReadCount)
+ERR_VALUE input_get_reads(const char *Filename, PONE_READ *Reads, size_t *ReadCount)
 {
 	size_t dataLength = 0;
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
