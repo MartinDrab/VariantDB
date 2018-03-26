@@ -123,6 +123,26 @@ ERR_VALUE utils_fread(void *Buffer, const size_t Size, const size_t Count, FILE 
 }
 
 
+ERR_VALUE utils_file_read_line(FILE *File, char *Buffer, size_t MaxSize)
+{
+	ERR_VALUE ret = ERR_INTERNAL_ERROR;
+
+	*Buffer = '\0';
+	ret = ERR_SUCCESS;
+	for (size_t i = 0; i < MaxSize - 1; ++i) {
+		ret = fread(Buffer + i, 1, 1, File) == 1 ? ERR_SUCCESS : ERR_IO_ERROR;
+		if (feof(File) || Buffer[i] == '\n' || Buffer[i] == '\r') {
+			Buffer[i] = '\0';
+			ret = ERR_SUCCESS;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+
+
 ERR_VALUE utils_fwrite(const void *Buffer, const size_t Size, const size_t Count, FILE *Stream)
 {
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;

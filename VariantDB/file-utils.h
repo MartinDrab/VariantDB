@@ -28,6 +28,7 @@ ERR_VALUE utils_file_read(const char *FileName, char **Data, size_t *DataLength)
 
 ERR_VALUE utils_fopen(const char *FileName, const uint32_t Mode, FILE **Stream);
 ERR_VALUE utils_fread(void *Buffer, const size_t Size, const size_t Count, FILE *Stream);
+ERR_VALUE utils_file_read_line(FILE *File, char *Buffer, size_t MaxSize);
 ERR_VALUE utils_fwrite(const void *Buffer, const size_t Size, const size_t Count, FILE *Stream);
 ERR_VALUE utils_fclose(FILE *Stream);
 
