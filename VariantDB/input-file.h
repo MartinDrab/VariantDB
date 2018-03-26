@@ -51,6 +51,17 @@ GEN_ARRAY_IMPLEMENTATION(VCF_VARIANT)
 POINTER_ARRAY_TYPEDEF(VCF_VARIANT);
 POINTER_ARRAY_IMPLEMENTATION(VCF_VARIANT)
 
+typedef struct _CONFIDENT_REGION {
+	char *Chrom;
+	unsigned long long Start;
+	unsigned long long End;
+} CONFIDENT_REGION, *PCONFIDENT_REGION;
+
+GEN_ARRAY_TYPEDEF(CONFIDENT_REGION);
+GEN_ARRAY_IMPLEMENTATION(CONFIDENT_REGION)
+POINTER_ARRAY_TYPEDEF(CONFIDENT_REGION);
+POINTER_ARRAY_IMPLEMENTATION(CONFIDENT_REGION)
+
 
 ERR_VALUE fasta_load(const char *FileName, PFASTA_FILE FastaRecord);
 ERR_VALUE fasta_read_seq(PFASTA_FILE FastaRecord, PREFSEQ_DATA Data);
@@ -71,7 +82,8 @@ void input_free_regions(PACTIVE_REGION Regions, const size_t Count);
 ERR_VALUE input_get_variants(const char *FileName, PGEN_ARRAY_VCF_VARIANT Array);
 void input_Free_variants(PGEN_ARRAY_VCF_VARIANT Array);
 
-
+ERR_VALUE input_get_bed(const char *FileName, PGEN_ARRAY_CONFIDENT_REGION Array);
+void input_free_bed(PGEN_ARRAY_CONFIDENT_REGION Array);
 
 
 
