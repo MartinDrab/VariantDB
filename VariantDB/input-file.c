@@ -598,3 +598,67 @@ void input_free_regions(PACTIVE_REGION Regions, const size_t Count)
 
 	return;
 }
+
+
+ERR_VALUE input_get_variants(const char *FileName, PGEN_ARRAY_VCF_VARIANT Array)
+{
+	char line[4096];
+	FILE *f = NULL;
+	ERR_VALUE ret = ERR_INTERNAL_ERROR;
+	POINTER_ARRAY_char fields;
+	VCF_VARIANT v;
+
+	pointer_array_init_char(&fields, 140);
+	ret = utils_fopen(FileName, FOPEN_MODE_READ, &f);
+	if (ret == ERR_SUCCESS) {
+		while (ret == ERR_SUCCESS && !feof(f) && !ferror(f)) {
+			ret = utils_file_read_line(f, line, sizeof(line));
+			if (ret == ERR_SUCCESS && *line != '\0' && *line != '#') {
+				ret = utils_split(line, '\t', &fields);
+				if (ret == ERR_SUCCESS) {
+					v.Chrom = fields.Data[0];
+					v.Pos = strtoull(fields.Data[1], NULL, 0);
+					v.ID = fields.Data[2];
+					v.Ref = fields.Data[3];
+					v.Alt = fields.Data[4];
+					v.Quality = strtoul(fields.Data[5], NULL, 0);
+					ret = dym_array_push_back_VCF_VARIANT(Array, v);
+					if (ret == ERR_SUCCESS) {
+						fields.Data[0] = NULL;
+						fields.Data[2] = NULL;
+						fields.Data[3] = NULL;
+						fields.Data[4] = NULL;
+					}
+
+					utils_split_free(&fields);
+				}
+			}
+		}
+
+		utils_fclose(f);
+
+	}
+
+	pointer_array_finit_char(&fields);
+
+	return ret;
+}
+
+
+void input_Free_variants(PGEN_ARRAY_VCF_VARIANT Array)
+{
+	const VCF_VARIANT *v = NULL;
+
+	v = Array->Data;
+	for (size_t i = 0; i < pointer_array_size(Array); ++i) {
+		utils_free(v->Chrom);
+		utils_free(v->ID);
+		utils_free(v->Ref);
+		utils_free(v->Alt);
+		++v;
+	}
+
+	dym_array_clear_VCF_VARIANT(Array);
+
+	return;
+}

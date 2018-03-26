@@ -37,6 +37,20 @@ typedef struct _REFSEQ_DATA {
 	const char *Name;
 } REFSEQ_DATA, *PREFSEQ_DATA;
 
+typedef struct _VCF_VARIANT {
+	char *Chrom;
+	unsigned long long Pos;
+	char *ID;
+	char *Ref;
+	char *Alt;
+	unsigned long Quality;
+} VCF_VARIANT, *PVCF_VARIANT;
+
+GEN_ARRAY_TYPEDEF(VCF_VARIANT);
+GEN_ARRAY_IMPLEMENTATION(VCF_VARIANT)
+POINTER_ARRAY_TYPEDEF(VCF_VARIANT);
+POINTER_ARRAY_IMPLEMENTATION(VCF_VARIANT)
+
 
 ERR_VALUE fasta_load(const char *FileName, PFASTA_FILE FastaRecord);
 ERR_VALUE fasta_read_seq(PFASTA_FILE FastaRecord, PREFSEQ_DATA Data);
@@ -49,10 +63,13 @@ void input_free_filtered_reads(PONE_READ Reads, size_t Count);
 void input_filter_bad_reads(PONE_READ Reads, size_t *Count, const uint8_t MinQuality, boolean UseCIGAR);
 void input_sort_reads(PONE_READ Reads, const size_t Count);
 void input_free_reads(PONE_READ Reads, const size_t Count);
+
 ERR_VALUE input_refseq_to_regions(const char *RefSeq, const size_t RefSeqLen, PACTIVE_REGION *Regions, size_t *Count);
 ERR_VALUE input_get_region_by_offset(const PACTIVE_REGION Regions, const size_t Count, const uint64_t Offset, size_t *Index, uint64_t *RegionOffset);
 void input_free_regions(PACTIVE_REGION Regions, const size_t Count);
 
+ERR_VALUE input_get_variants(const char *FileName, PGEN_ARRAY_VCF_VARIANT Array);
+void input_Free_variants(PGEN_ARRAY_VCF_VARIANT Array);
 
 
 
