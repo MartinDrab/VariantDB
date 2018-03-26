@@ -2,6 +2,7 @@ data
 tmp
 bin
 .vs
+*.user
 
 # Prerequisites
 *.d
