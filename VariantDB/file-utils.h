@@ -4,7 +4,7 @@
 
 
 #include "err.h"
-
+#include "pointer_array.h"
 
 
 
@@ -31,8 +31,8 @@ ERR_VALUE utils_fread(void *Buffer, const size_t Size, const size_t Count, FILE 
 ERR_VALUE utils_file_read_line(FILE *File, char *Buffer, size_t MaxSize);
 ERR_VALUE utils_fwrite(const void *Buffer, const size_t Size, const size_t Count, FILE *Stream);
 ERR_VALUE utils_fclose(FILE *Stream);
-
-
+ERR_VALUE utils_split(const char *String, char Delimiter, PPOINTER_ARRAY_char Array);
+void utils_split_free(PPOINTER_ARRAY_char Array);
 
 
 

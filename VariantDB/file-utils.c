@@ -211,3 +211,58 @@ ERR_VALUE utils_file_read(const char *FileName, char **Data, size_t *DataLength)
 
 	return ret;
 }
+
+
+ERR_VALUE utils_split(const char *String, char Delimiter, PPOINTER_ARRAY_char Array)
+{
+	size_t len = 0;
+	char *tmp = NULL;
+	const char *start = String;
+	ERR_VALUE ret = ERR_INTERNAL_ERROR;
+
+	ret = ERR_SUCCESS;
+	while (ret == ERR_SUCCESS && *String != '\0') {
+		if (*String == Delimiter) {
+			len = String - start;
+			ret = utils_malloc((len + 1) * sizeof(char), &tmp);
+			if (ret == ERR_SUCCESS) {
+				memcpy(tmp, start, len * sizeof(char));
+				tmp[len] = '\0';
+				ret = pointer_array_push_back_char(Array, tmp);
+				if (ret != ERR_SUCCESS)
+					utils_free(tmp);
+			}
+
+			start = String + 1;
+		}
+
+		++String;
+	}
+
+	if (ret == ERR_SUCCESS) {
+		len = String - start;
+		ret = utils_malloc((len + 1) * sizeof(char), &tmp);
+		if (ret == ERR_SUCCESS) {
+			memcpy(tmp, start, len * sizeof(char));
+			tmp[len] = '\0';
+			ret = pointer_array_push_back_char(Array, tmp);
+			if (ret != ERR_SUCCESS)
+				utils_free(tmp);
+		}
+	}
+
+	return ret;
+}
+
+
+void utils_split_free(PPOINTER_ARRAY_char Array)
+{
+	for (size_t i = 0; i < pointer_array_size(Array); ++i) {
+		if (Array->Data[i] != NULL)
+			utils_free(Array->Data[i]);
+	}
+
+	pointer_array_clear_char(Array);
+
+	return;
+}
