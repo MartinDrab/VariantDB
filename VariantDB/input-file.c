@@ -247,20 +247,19 @@ void fasta_free(PFASTA_FILE FastaRecord)
 
 ERR_VALUE input_get_reads(const char *Filename, PONE_READ *Reads, size_t *ReadCount)
 {
-	size_t dataLength = 0;
+	FILE *f = NULL;
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
-	char *data = NULL;
+	char line[4096];
 
-	ret = utils_file_read(Filename, &data, &dataLength);
+	ret = utils_fopen(Filename, FOPEN_MODE_READ, &f);
 	if (ret == ERR_SUCCESS) {
-		const char *line = data;
 		ONE_READ oneRead;
 		GEN_ARRAY_ONE_READ readArray;
-		const char *lineEnd = _read_line(line);
 
 		dym_array_init_ONE_READ(&readArray, 140);
-		while (ret == ERR_SUCCESS && line != lineEnd) {
-			if (*line != '@') {
+		while (ret == ERR_SUCCESS && !feof(f) && !ferror(f)) {
+			ret = utils_file_read_line(f, line, sizeof(line));
+			if (ret == ERR_SUCCESS && *line != '@' && *line != '\0') {
 				ret = read_create_from_sam_line(line, &oneRead);
 				if (ret == ERR_SUCCESS) {
 					ret = dym_array_push_back_ONE_READ(&readArray, oneRead);
@@ -268,11 +267,9 @@ ERR_VALUE input_get_reads(const char *Filename, PONE_READ *Reads, size_t *ReadCo
 						_read_destroy_structure(&oneRead);
 				}
 			}
-
-			line = _advance_to_next_line(lineEnd);
-			lineEnd = _read_line(line);
 		}
 
+		utils_fclose(f);
 		if (ret == ERR_SUCCESS) {
 			PONE_READ tmpReads = NULL;
 			const size_t tmpReadCount = gen_array_size(&readArray);
@@ -293,7 +290,6 @@ ERR_VALUE input_get_reads(const char *Filename, PONE_READ *Reads, size_t *ReadCo
 		}
 
 		dym_array_finit_ONE_READ(&readArray);
-		utils_free(data);
 	}
 	
 	return ret;
