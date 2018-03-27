@@ -731,7 +731,7 @@ static int _bed_comparator(const CONFIDENT_REGION *A, const CONFIDENT_REGION *B)
 }
 
 
-ERR_VALUE input_get_bed(const char *FileName, PGEN_ARRAY_CONFIDENT_REGION Array)
+ERR_VALUE input_get_bed(const char *FileName, const char *Chrom, PGEN_ARRAY_CONFIDENT_REGION Array)
 {
 	char line[4096];
 	FILE *f = NULL;
@@ -750,9 +750,11 @@ ERR_VALUE input_get_bed(const char *FileName, PGEN_ARRAY_CONFIDENT_REGION Array)
 					cr.Chrom = fields.Data[0];
 					cr.Start = strtoull(fields.Data[1], NULL, 0);
 					cr.End = strtoull(fields.Data[2], NULL, 0);
-					ret = dym_array_push_back_CONFIDENT_REGION(Array, cr);
-					if (ret == ERR_SUCCESS)
-						fields.Data[0] = NULL;
+					if (strcmp(cr.Chrom, Chrom) == 0) {
+						ret = dym_array_push_back_CONFIDENT_REGION(Array, cr);
+						if (ret == ERR_SUCCESS)
+							fields.Data[0] = NULL;
+					}
 
 					utils_split_free(&fields);
 				}
