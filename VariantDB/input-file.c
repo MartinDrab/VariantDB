@@ -602,7 +602,13 @@ void input_free_regions(PACTIVE_REGION Regions, const size_t Count)
 
 static int _variant_comparator(const VCF_VARIANT *A, const VCF_VARIANT *B)
 {
-	return (int)(A->Pos - B->Pos);
+	int ret = 0;
+
+	ret = strcmp(A->Chrom, B->Chrom);
+	if (ret == 0)
+		ret = (int)(A->Pos - B->Pos);
+
+	return ret;
 }
 
 
