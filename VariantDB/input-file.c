@@ -612,7 +612,7 @@ static int _variant_comparator(const VCF_VARIANT *A, const VCF_VARIANT *B)
 }
 
 
-ERR_VALUE input_get_variants(const char *FileName, PGEN_ARRAY_VCF_VARIANT Array)
+ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Filter, PGEN_ARRAY_VCF_VARIANT Array)
 {
 	char line[4096];
 	FILE *f = NULL;
@@ -634,12 +634,14 @@ ERR_VALUE input_get_variants(const char *FileName, PGEN_ARRAY_VCF_VARIANT Array)
 					v.Ref = fields.Data[3];
 					v.Alt = fields.Data[4];
 					v.Quality = strtoul(fields.Data[5], NULL, 0);
-					ret = dym_array_push_back_VCF_VARIANT(Array, v);
-					if (ret == ERR_SUCCESS) {
-						fields.Data[0] = NULL;
-						fields.Data[2] = NULL;
-						fields.Data[3] = NULL;
-						fields.Data[4] = NULL;
+					if (input_variant_in_filter(Filter, &v)) {
+						ret = dym_array_push_back_VCF_VARIANT(Array, v);
+						if (ret == ERR_SUCCESS) {
+							fields.Data[0] = NULL;
+							fields.Data[2] = NULL;
+							fields.Data[3] = NULL;
+							fields.Data[4] = NULL;
+						}
 					}
 
 					utils_split_free(&fields);
@@ -675,6 +677,45 @@ void input_Free_variants(PGEN_ARRAY_VCF_VARIANT Array)
 	dym_array_clear_VCF_VARIANT(Array);
 
 	return;
+}
+
+
+boolean input_variant_in_filter(const VCF_VARIANT_FILTER *Filter, const VCF_VARIANT *Variant)
+{
+	long long int cmpResult = 0;
+	boolean ret = FALSE;
+	size_t intervalStart = 0;
+	size_t intervalSize = Filter->RegionCount;
+	size_t index = intervalStart + intervalSize / 2;
+
+	ret = (intervalSize == 0);
+	while (intervalSize > 0) {
+		cmpResult = strcmp(Variant->Chrom, Filter->Regions[index].Chrom);
+		if (cmpResult == 0) {
+			cmpResult = (long long int)(Variant->Pos - Filter->Regions[index].Start);
+			if (cmpResult >= 0) {
+				ret = (Variant->Pos <= Filter->Regions[index].End);
+				if (!ret) {
+					intervalSize /= 2;
+					if (cmpResult > 0)
+						index += intervalSize;
+					else index -= intervalSize;
+				}
+			} else {
+				intervalSize /= 2;
+				if (cmpResult > 0)
+					index += intervalSize;
+				else index -= intervalSize;
+			}
+		} else {
+			intervalSize /= 2;
+			if (cmpResult > 0)
+				index += intervalSize;
+			else index -= intervalSize;
+		}
+	}
+
+	return ret;
 }
 
 
