@@ -600,6 +600,12 @@ void input_free_regions(PACTIVE_REGION Regions, const size_t Count)
 }
 
 
+static int _variant_comparator(const VCF_VARIANT *A, const VCF_VARIANT *B)
+{
+	return (int)(A->Pos - B->Pos);
+}
+
+
 ERR_VALUE input_get_variants(const char *FileName, PGEN_ARRAY_VCF_VARIANT Array)
 {
 	char line[4096];
@@ -640,6 +646,8 @@ ERR_VALUE input_get_variants(const char *FileName, PGEN_ARRAY_VCF_VARIANT Array)
 	}
 
 	pointer_array_finit_char(&fields);
+	if (ret == ERR_SUCCESS)
+		qsort(Array->Data, pointer_array_size(Array), sizeof(VCF_VARIANT), _variant_comparator);
 
 	return ret;
 }
