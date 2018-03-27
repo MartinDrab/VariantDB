@@ -672,6 +672,18 @@ void input_Free_variants(PGEN_ARRAY_VCF_VARIANT Array)
 }
 
 
+static int _bed_comparator(const CONFIDENT_REGION *A, const CONFIDENT_REGION *B)
+{
+	int ret = 0;
+
+	ret = strcmp(A->Chrom, B->Chrom);
+	if (ret == 0)
+		ret = (int)(A->Start - B->Start);
+
+	return ret;
+}
+
+
 ERR_VALUE input_get_bed(const char *FileName, PGEN_ARRAY_CONFIDENT_REGION Array)
 {
 	char line[4096];
@@ -705,7 +717,9 @@ ERR_VALUE input_get_bed(const char *FileName, PGEN_ARRAY_CONFIDENT_REGION Array)
 	}
 
 	pointer_array_finit_char(&fields);
-
+	if (ret == ERR_SUCCESS)
+		qsort(Array->Data, pointer_array_size(Array), sizeof(CONFIDENT_REGION), _bed_comparator);
+	
 	return ret;
 }
 
