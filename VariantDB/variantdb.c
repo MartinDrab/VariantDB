@@ -4,6 +4,7 @@
 #include "err.h"
 #include "utils.h"
 #include "options.h"
+#include "input-file.h"
 #include "variantdb.h"
 
 
@@ -46,8 +47,40 @@ static ERR_VALUE _cmd_optiion_parse(void)
 	CMD_OPTION_GET(VDB_OPTION_HELP, Boolean, &_help);
 	CMD_OPTION_GET(VDB_OPTION_VERBOSE, Boolean, &_verbose);
 
+	if (_help)
+		return ERR_SUCCESS;
+
+	if (*_refFile == '\0') {
+		fprintf(stderr, "[ERROR]: The reference sequence file was not specified (--%s)\n", VDB_OPTION_REF_FILE);
+		return ERR_INTERNAL_ERROR;
+	}
+
+	if (*_samFile == '\0') {
+		fprintf(stderr, "[ERROR]: The SAM file was not specified (--%s)\n", VDB_OPTION_SAM_FILE);
+		return ERR_INTERNAL_ERROR;
+	}
+
+	if (*_vcfFile == '\0') {
+		fprintf(stderr, "[ERROR]: The VCF file was not specified (--%s)\n", VDB_OPTION_VCF_FILE);
+		return ERR_INTERNAL_ERROR;
+	}
+
+	if (*_bedFile == '\0')
+		fprintf(stderr, "[WARNING]: The BED file was not specified (--%s). Treating all regions as confident\n", VDB_OPTION_BED_FILE);
+
+	if (_regionStart >= _regionEnd) {
+		fprintf(stderr, "[ERROR]: The specified region (--%s, --%s) is not an interval\n", VDB_OPTION_START, VDB_OPTION_STOP);
+		return ERR_INTERNAL_ERROR;
+	}
+
 	return ERR_SUCCESS;
 }
+
+
+static FASTA_FILE refFile;
+static REFSEQ_DATA refData;
+static boolean _fastaLoaded = FALSE;
+
 
 
 int main(int argc, char **argv)
@@ -64,7 +97,21 @@ int main(int argc, char **argv)
 				ret = _cmd_optiion_parse();
 			
 			if (ret == ERR_SUCCESS) {
+				ret = fasta_load(_refFile, &refFile);
+				if (ret == ERR_SUCCESS) {
+					ret = fasta_read_seq(&refFile, &refData);
+					if (ret != ERR_SUCCESS)
+						fasta_free(&refFile);
+				}
+			}
+			
+			if (ret == ERR_SUCCESS) {
+				_fastaLoaded = TRUE;
+			}
 
+			if (_fastaLoaded) {
+				fasta_free_seq(&refData);
+				fasta_free(&refFile);
 			}
 
 			options_module_finit();

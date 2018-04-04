@@ -5,6 +5,7 @@
 
 #include "gen_dym_array.h"
 #include "pointer_array.h"
+#include "reads.h"
 
 
 typedef enum _EActiveRegionType {
