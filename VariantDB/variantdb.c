@@ -80,7 +80,10 @@ static ERR_VALUE _cmd_optiion_parse(void)
 static FASTA_FILE refFile;
 static REFSEQ_DATA refData;
 static boolean _fastaLoaded = FALSE;
-
+static VCF_VARIANT_FILTER variantFilter;
+static CONFIDENT_REGION region;
+static GEN_ARRAY_VCF_VARIANT variants;
+static boolean _variantsLoaded = FALSE;
 
 
 int main(int argc, char **argv)
@@ -103,10 +106,27 @@ int main(int argc, char **argv)
 					if (ret != ERR_SUCCESS)
 						fasta_free(&refFile);
 				}
+
+				_fastaLoaded = (ret == ERR_SUCCESS);
 			}
 			
 			if (ret == ERR_SUCCESS) {
-				_fastaLoaded = TRUE;
+				region.Chrom = _chromosome;
+				region.Start = _regionStart;
+				region.End = _regionEnd;
+				variantFilter.RegionCount = 1;
+				variantFilter.Regions = &region;
+				dym_array_init_VCF_VARIANT(&variants, 150);
+				ret = input_get_variants(_vcfFile, &variantFilter, &variants);
+
+				_variantsLoaded = (ret == ERR_SUCCESS);
+			}
+
+
+
+			if (_variantsLoaded) {
+				input_Free_variants(&variants);
+				dym_array_finit_VCF_VARIANT(&variants);
 			}
 
 			if (_fastaLoaded) {
