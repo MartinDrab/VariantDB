@@ -634,7 +634,7 @@ ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Fil
 					v.Ref = fields.Data[3];
 					v.Alt = fields.Data[4];
 					v.Quality = strtoul(fields.Data[5], NULL, 0);
-					if (input_variant_in_filter(Filter, &v)) {
+					if (Filter == NULL || input_variant_in_filter(Filter, &v)) {
 						ret = dym_array_push_back_VCF_VARIANT(Array, v);
 						if (ret == ERR_SUCCESS) {
 							fields.Data[0] = NULL;
