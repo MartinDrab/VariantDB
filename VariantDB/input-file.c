@@ -750,7 +750,7 @@ ERR_VALUE input_get_bed(const char *FileName, const char *Chrom, PGEN_ARRAY_CONF
 					cr.Chrom = fields.Data[0];
 					cr.Start = strtoull(fields.Data[1], NULL, 0);
 					cr.End = strtoull(fields.Data[2], NULL, 0);
-					if (strcmp(cr.Chrom, Chrom) == 0) {
+					if (Chrom == NULL || *Chrom == '\0' || strcmp(cr.Chrom, Chrom) == 0) {
 						ret = dym_array_push_back_CONFIDENT_REGION(Array, cr);
 						if (ret == ERR_SUCCESS)
 							fields.Data[0] = NULL;
