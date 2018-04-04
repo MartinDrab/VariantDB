@@ -91,15 +91,20 @@ int main(int argc, char **argv)
 {
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
 
+	fprintf(stderr, "[INFO]: Initializing the memory allocator...\n");
 	ret = utils_allocator_init(1);
 	if (ret == ERR_SUCCESS) {
+		fprintf(stderr, "[INFO]: Initializing the command line parser...\n");
 		ret = options_module_init(37);
 		if (ret == ERR_SUCCESS) {
+			fprintf(stderr, "[INFO]: Parsing the command line...\n");
 			_cmd_option_init();
 			ret = options_parse_command_line(argc - 1, argv + 1);
-			if (ret == ERR_SUCCESS)
+			if (ret == ERR_SUCCESS) {
+				fprintf(stderr, "[INFO]: Validating command line arguments...\n");
 				ret = _cmd_optiion_parse();
-			
+			}
+
 			if (ret == ERR_SUCCESS) {
 				fprintf(stderr, "[INFO]: Loading the reference...\n");
 				ret = fasta_load(_refFile, &refFile);
@@ -151,9 +156,13 @@ int main(int argc, char **argv)
 				fasta_free(&refFile);
 			}
 
+			fprintf(stderr, "[INFO]: Cleaning up the command line parser...\n");
 			options_module_finit();
 		}
 	}
 
-	return 0;
+	if (ret != ERR_SUCCESS)
+		fprintf(stderr, "[ERROR]: The operation failed with an error code %u\n", ret);
+
+	return ret;
 }
