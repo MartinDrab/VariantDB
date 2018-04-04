@@ -245,7 +245,7 @@ void fasta_free(PFASTA_FILE FastaRecord)
 }
 
 
-ERR_VALUE input_get_reads(const char *Filename, PONE_READ *Reads, size_t *ReadCount)
+ERR_VALUE input_get_reads(const char *Filename, const CONFIDENT_REGION *Region, PONE_READ *Reads, size_t *ReadCount)
 {
 	FILE *f = NULL;
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
@@ -261,7 +261,8 @@ ERR_VALUE input_get_reads(const char *Filename, PONE_READ *Reads, size_t *ReadCo
 			ret = utils_file_read_line(f, line, sizeof(line));
 			if (ret == ERR_SUCCESS && *line != '@' && *line != '\0') {
 				ret = read_create_from_sam_line(line, &oneRead);
-				if (ret == ERR_SUCCESS) {
+				if (ret == ERR_SUCCESS &&
+					((Region == NULL || strcmp(Region->Chrom, oneRead.Extension->RName) == 0) && Region->Start <= oneRead.Pos && oneRead.Pos < Region->End)) {
 					ret = dym_array_push_back_ONE_READ(&readArray, oneRead);
 					if (ret != ERR_SUCCESS)
 						_read_destroy_structure(&oneRead);
