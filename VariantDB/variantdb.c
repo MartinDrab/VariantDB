@@ -101,6 +101,7 @@ int main(int argc, char **argv)
 				ret = _cmd_optiion_parse();
 			
 			if (ret == ERR_SUCCESS) {
+				fprintf(stderr, "[INFO]: Loading the reference...\n");
 				ret = fasta_load(_refFile, &refFile);
 				if (ret == ERR_SUCCESS) {
 					ret = fasta_read_seq(&refFile, &refData);
@@ -112,6 +113,7 @@ int main(int argc, char **argv)
 			}
 			
 			if (ret == ERR_SUCCESS) {
+				fprintf(stderr, "[INFO]: Loading the VCF...\n");
 				region.Chrom = _chromosome;
 				region.Start = _regionStart;
 				region.End = _regionEnd;
@@ -124,6 +126,7 @@ int main(int argc, char **argv)
 			}
 
 			if (ret == ERR_SUCCESS && *_bedFile != '\0') {
+				fprintf(stderr, "[INFO]: Loading the BED...\n");
 				dym_array_init_CONFIDENT_REGION(&confidentRegions, 150);
 				ret = input_get_bed(_bedFile, _chromosome, &confidentRegions);
 
@@ -131,16 +134,19 @@ int main(int argc, char **argv)
 			}
 
 			if (_bedLoaded) {
+				fprintf(stderr, "[INFO]: Freeing the BED...\n");
 				input_free_bed(&confidentRegions);
 				dym_array_finit_CONFIDENT_REGION(&confidentRegions);
 			}
 
 			if (_variantsLoaded) {
+				fprintf(stderr, "[INFO]: Freeing the VCF...\n");
 				input_Free_variants(&variants);
 				dym_array_finit_VCF_VARIANT(&variants);
 			}
 
 			if (_fastaLoaded) {
+				fprintf(stderr, "[INFO]: Freeing the reference...\n");
 				fasta_free_seq(&refData);
 				fasta_free(&refFile);
 			}
