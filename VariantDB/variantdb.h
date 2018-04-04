@@ -40,6 +40,6 @@
 	option_set_description_const(aMacroName, aMacroName##_DESC);	\
 
 #define CMD_OPTION_GET(aMacroName, aType, aPResult)	\
-	option_get_##aType(aMacroName, aResult);	\
+	option_get_##aType(aMacroName, aPResult);	\
 
 #endif
