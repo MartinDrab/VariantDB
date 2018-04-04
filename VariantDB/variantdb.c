@@ -84,7 +84,8 @@ static VCF_VARIANT_FILTER variantFilter;
 static CONFIDENT_REGION region;
 static GEN_ARRAY_VCF_VARIANT variants;
 static boolean _variantsLoaded = FALSE;
-
+static GEN_ARRAY_CONFIDENT_REGION confidentRegions;
+static boolean _bedLoaded = FALSE;
 
 int main(int argc, char **argv)
 {
@@ -122,7 +123,17 @@ int main(int argc, char **argv)
 				_variantsLoaded = (ret == ERR_SUCCESS);
 			}
 
+			if (ret == ERR_SUCCESS && *_bedFile != '\0') {
+				dym_array_init_CONFIDENT_REGION(&confidentRegions, 150);
+				ret = input_get_bed(_bedFile, _chromosome, &confidentRegions);
 
+				_bedLoaded = (ret == ERR_SUCCESS);
+			}
+
+			if (_bedLoaded) {
+				input_free_bed(&confidentRegions);
+				dym_array_finit_CONFIDENT_REGION(&confidentRegions);
+			}
 
 			if (_variantsLoaded) {
 				input_Free_variants(&variants);
