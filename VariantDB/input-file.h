@@ -38,6 +38,8 @@ typedef struct _REFSEQ_DATA {
 	const char *Name;
 } REFSEQ_DATA, *PREFSEQ_DATA;
 
+typedef ERR_VALUE (READ_INPUT_CALLBACK)(PONE_READ Read, void *Context);
+
 typedef struct _VCF_VARIANT {
 	char *Chrom;
 	unsigned long long Pos;
@@ -75,12 +77,7 @@ ERR_VALUE fasta_read_seq(PFASTA_FILE FastaRecord, PREFSEQ_DATA Data);
 void fasta_free_seq(PREFSEQ_DATA Data);
 void fasta_free(PFASTA_FILE FastaRecord);
 
-ERR_VALUE input_get_reads(const char *Filename, const CONFIDENT_REGION *Region, PONE_READ *Reads, size_t *ReadCount);
-ERR_VALUE input_filter_reads(const ONE_READ *Source, const size_t SourceCount, const uint64_t RegionStart, const size_t RegionLength, PGEN_ARRAY_ONE_READ NewReads);
-void input_free_filtered_reads(PONE_READ Reads, size_t Count);
-void input_filter_bad_reads(PONE_READ Reads, size_t *Count, const uint8_t MinQuality, boolean UseCIGAR);
-void input_sort_reads(PONE_READ Reads, const size_t Count);
-void input_free_reads(PONE_READ Reads, const size_t Count);
+ERR_VALUE input_get_reads(const char *Filename, const CONFIDENT_REGION *Region, READ_INPUT_CALLBACK *Callback, void *Context);
 
 ERR_VALUE input_refseq_to_regions(const char *RefSeq, const size_t RefSeqLen, PACTIVE_REGION *Regions, size_t *Count);
 ERR_VALUE input_get_region_by_offset(const PACTIVE_REGION Regions, const size_t Count, const uint64_t Offset, size_t *Index, uint64_t *RegionOffset);

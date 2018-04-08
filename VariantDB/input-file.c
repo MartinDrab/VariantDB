@@ -245,52 +245,36 @@ void fasta_free(PFASTA_FILE FastaRecord)
 }
 
 
-ERR_VALUE input_get_reads(const char *Filename, const CONFIDENT_REGION *Region, PONE_READ *Reads, size_t *ReadCount)
+ERR_VALUE input_get_reads(const char *Filename, const CONFIDENT_REGION *Region, INPUT_READ_CALLBACK *callback, void *context)
 {
 	FILE *f = NULL;
-	ERR_VALUE ret = ERR_INTERNAL_ERROR;
 	char line[4096];
+	ONE_READ oneRead;
+	ERR_VALUE ret = ERR_INTERNAL_ERROR;
 
 	ret = utils_fopen(Filename, FOPEN_MODE_READ, &f);
 	if (ret == ERR_SUCCESS) {
-		ONE_READ oneRead;
-		GEN_ARRAY_ONE_READ readArray;
-
-		dym_array_init_ONE_READ(&readArray, 140);
 		while (ret == ERR_SUCCESS && !feof(f) && !ferror(f)) {
 			ret = utils_file_read_line(f, line, sizeof(line));
 			if (ret == ERR_SUCCESS && *line != '@' && *line != '\0') {
 				ret = read_create_from_sam_line(line, &oneRead);
 				if (ret == ERR_SUCCESS &&
 					((Region == NULL || strcmp(Region->Chrom, oneRead.Extension->RName) == 0) && Region->Start <= oneRead.Pos && oneRead.Pos < Region->End)) {
-					ret = dym_array_push_back_ONE_READ(&readArray, oneRead);
-					if (ret != ERR_SUCCESS)
-						_read_destroy_structure(&oneRead);
+					if (!(r->PosQuality < MinQuality || r->Pos == (uint64_t)-1 ||
+						r->Extension->Flags.Bits.Unmapped ||
+						r->Extension->Flags.Bits.Supplementary ||
+						r->Extension->Flags.Bits.Duplicate ||
+						r->Extension->Flags.Bits.SecondaryAlignment)) {
+						read_adjust(&oneRead, Region->Start, Region->End - Region->Start);
+						ret = Callback(&oneRead, Context);
+					}
+
+					_read_destroy_structure(&oneRead);
 				}
-			}
+
 		}
 
 		utils_fclose(f);
-		if (ret == ERR_SUCCESS) {
-			PONE_READ tmpReads = NULL;
-			const size_t tmpReadCount = gen_array_size(&readArray);
-
-			ret = utils_calloc_ONE_READ(tmpReadCount, &tmpReads);
-			if (ret == ERR_SUCCESS) {
-				memcpy(tmpReads, readArray.Data, gen_array_size(&readArray)*sizeof(ONE_READ));
-				*Reads = tmpReads;
-				*ReadCount = gen_array_size(&readArray);
-			}
-		}
-
-		if (ret != ERR_SUCCESS) {
-			const size_t len = gen_array_size(&readArray);
-
-			for (size_t i = 0; i < len; ++i)
-				_read_destroy_structure((PONE_READ)dym_array_item_ONE_READ(&readArray, i));
-		}
-
-		dym_array_finit_ONE_READ(&readArray);
 	}
 	
 	return ret;

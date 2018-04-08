@@ -87,6 +87,15 @@ static boolean _variantsLoaded = FALSE;
 static GEN_ARRAY_CONFIDENT_REGION confidentRegions;
 static boolean _bedLoaded = FALSE;
 
+
+static ERR_VALUE _on_read_callback(PONE_READ Read, void *Context)
+{
+	ERR_VALUE ret = ERR_INTERNAL_ERROR;
+
+	return ret;
+}
+
+
 int main(int argc, char **argv)
 {
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
@@ -136,6 +145,13 @@ int main(int argc, char **argv)
 				ret = input_get_bed(_bedFile, _chromosome, &confidentRegions);
 
 				_bedLoaded = (ret == ERR_SUCCESS);
+			}
+
+			if (ret == ERR_SUCCESS)
+				ret = input_get_reads(_samFile, &region, _on_read_callback, NULL);
+
+			if (ret == ERR_SUCCESS) {
+
 			}
 
 			if (_bedLoaded) {
