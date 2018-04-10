@@ -47,6 +47,8 @@ typedef struct _VCF_VARIANT {
 	char *Ref;
 	char *Alt;
 	unsigned long Quality;
+	size_t ReadSupport;
+	struct _VCF_VARIANT *Alternative;
 } VCF_VARIANT, *PVCF_VARIANT;
 
 

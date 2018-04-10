@@ -156,9 +156,14 @@ int main(int argc, char **argv)
 					khiter_t it;
 					int res = 0;
 					PVCF_VARIANT v = variants.Data;
-					
+					PVCF_VARIANT tmp = NULL;
+
 					for (size_t i = 0; i < variants.ValidLength; ++i) {
 						it = kh_put(VariantTableType, _variantTable, v->Pos, &res);
+						tmp = kh_value(_variantTable, it);
+						if (tmp != NULL)
+							v->Alternative = tmp;
+
 						kh_value(_variantTable, it) = v;
 						++v;
 					}
