@@ -245,7 +245,7 @@ void fasta_free(PFASTA_FILE FastaRecord)
 }
 
 
-ERR_VALUE input_get_reads(const char *Filename, const CONFIDENT_REGION *Region, INPUT_READ_CALLBACK *callback, void *context)
+ERR_VALUE input_get_reads(const char *Filename, const CONFIDENT_REGION *Region, INPUT_READ_CALLBACK *Callback, void *Context)
 {
 	FILE *f = NULL;
 	char line[4096];
@@ -260,170 +260,24 @@ ERR_VALUE input_get_reads(const char *Filename, const CONFIDENT_REGION *Region, 
 				ret = read_create_from_sam_line(line, &oneRead);
 				if (ret == ERR_SUCCESS &&
 					((Region == NULL || strcmp(Region->Chrom, oneRead.Extension->RName) == 0) && Region->Start <= oneRead.Pos && oneRead.Pos < Region->End)) {
-					if (!(r->PosQuality < MinQuality || r->Pos == (uint64_t)-1 ||
-						r->Extension->Flags.Bits.Unmapped ||
-						r->Extension->Flags.Bits.Supplementary ||
-						r->Extension->Flags.Bits.Duplicate ||
-						r->Extension->Flags.Bits.SecondaryAlignment)) {
+					if (!(oneRead.PosQuality < 20 || oneRead.Pos == (uint64_t)-1 ||
+						oneRead.Extension->Flags.Bits.Unmapped ||
+						oneRead.Extension->Flags.Bits.Supplementary ||
+						oneRead.Extension->Flags.Bits.Duplicate ||
+						oneRead.Extension->Flags.Bits.SecondaryAlignment)) {
 						read_adjust(&oneRead, Region->Start, Region->End - Region->Start);
 						ret = Callback(&oneRead, Context);
 					}
 
 					_read_destroy_structure(&oneRead);
 				}
-
+			}
 		}
 
 		utils_fclose(f);
 	}
 	
 	return ret;
-}
-
-
-
-ERR_VALUE input_filter_reads(const ONE_READ *Source, const size_t SourceCount, const uint64_t RegionStart, const size_t RegionLength, PGEN_ARRAY_ONE_READ NewReads)
-{
-	const ONE_READ *r = NULL;
-	ERR_VALUE ret = ERR_INTERNAL_ERROR;
-	size_t firstIndex = (size_t)-1;
-	size_t lastIndex = (size_t)-1;
-
-	size_t leftBorder = 0;
-	size_t rightBorder = SourceCount - 1;
-	size_t currIndex = SourceCount / 2;
-
-	while (leftBorder <= rightBorder) {
-		r = Source + currIndex;
-		if (in_range(RegionStart, RegionLength, r->Pos) || in_range(RegionStart, RegionLength, r->Pos + r->ReadSequenceLen)) {
-			while (r != Source && (in_range(RegionStart, RegionLength, r->Pos) || in_range(RegionStart, RegionLength, r->Pos + r->ReadSequenceLen)))
-				--r;
-
-			firstIndex = r - Source;
-			if (!in_range(RegionStart, RegionLength, r->Pos) && !in_range(RegionStart, RegionLength, r->Pos + r->ReadSequenceLen))
-				++firstIndex;
-
-			lastIndex = currIndex;
-			r = Source + currIndex;
-			while (lastIndex < SourceCount - 1 && (in_range(RegionStart, RegionLength, r->Pos) || in_range(RegionStart, RegionLength, r->Pos + r->ReadSequenceLen))) {
-				++r;
-				++lastIndex;
-			}
-
-			if (!in_range(RegionStart, RegionLength, r->Pos) && !in_range(RegionStart, RegionLength, r->Pos + r->ReadSequenceLen))
-				--lastIndex;
-
-			break;
-		} else if (r->Pos >= RegionStart + RegionLength)
-			rightBorder = currIndex - 1;
-		else leftBorder = currIndex + 1;
-
-		currIndex = leftBorder + (rightBorder - leftBorder + 1) / 2;
-	}
-
-	if (firstIndex != (size_t)-1 && lastIndex != (size_t)-1) {
-		ret = dym_array_reserve_ONE_READ(NewReads, lastIndex - firstIndex + 1);
-		if (ret == ERR_SUCCESS) {
-			r = Source + firstIndex;
-			for (size_t i = firstIndex; i <= lastIndex; ++i) {
-				ONE_READ tmp;
-
-				tmp = *r;
-				read_adjust(&tmp, RegionStart, RegionLength);
-				dym_array_push_back_no_alloc_ONE_READ(NewReads, tmp);
-
-				++r;
-			}
-		}
-	}
-
-	return ret;
-}
-
-
-void input_free_filtered_reads(PONE_READ Reads, size_t Count)
-{
-	for (size_t i = 0; i < Count; ++i) {
-		if (Reads[i].SeqsReloacated) {
-			utils_free(Reads[i].ReadSequence - Reads[i].Offset);
-			utils_free(Reads[i].Quality - Reads[i].Offset);
-		}
-	}
-
-	return;
-}
-
-
-static int _read_comparator(const void *A, const void *B)
-{
-	const ONE_READ *rA = (const ONE_READ *)A;
-	const ONE_READ *rB = (const ONE_READ *)B;
-
-	if (rA->Pos < rB->Pos)
-		return -1;
-	else if (rA->Pos > rB->Pos)
-		return 1;
-
-	return 0;
-}
-
-
-void input_filter_bad_reads(PONE_READ Reads, size_t *Count, const uint8_t MinQuality, boolean UseCIGAR)
-{
-	ONE_READ *r = NULL;
-	size_t readSetSize = *Count;
-
-	{
-		size_t i = 0;
-
-		r = Reads;
-		while (i < readSetSize) {
-			if (r->PosQuality < MinQuality || r->Pos == (uint64_t)-1 ||
-				r->Extension->Flags.Bits.Unmapped ||
-				r->Extension->Flags.Bits.Supplementary ||
-				r->Extension->Flags.Bits.Duplicate ||
-				r->Extension->Flags.Bits.SecondaryAlignment) {
-				_read_destroy_structure(r);
-				*r = Reads[readSetSize - 1];
-				--readSetSize;
-			} else {
-				r->ReadIndex = i;
-				++r;
-				++i;
-			}
-		}
-	}
-
-	int i = 0;
-#pragma omp parallel for shared(Reads)
-	for (i = 0; i < (int)readSetSize; ++i) {
-		PONE_READ r = Reads + i;
-
-		if (UseCIGAR)
-			read_split(r);
-		
-		for (size_t j = 0; j < r->ReadSequenceLen; ++j)
-			r->Quality[j] = min(r->Quality[j], r->PosQuality);
-	}
-
-	*Count = readSetSize;
-
-	return;
-}
-
-void input_sort_reads(PONE_READ Reads, const size_t Count)
-{
-	qsort(Reads, Count, sizeof(ONE_READ), _read_comparator);
-
-	return;
-}
-
-
-void input_free_reads(PONE_READ Reads, const size_t Count)
-{
-	read_set_destroy(Reads, Count);
-
-	return;
 }
 
 

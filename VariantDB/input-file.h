@@ -38,7 +38,7 @@ typedef struct _REFSEQ_DATA {
 	const char *Name;
 } REFSEQ_DATA, *PREFSEQ_DATA;
 
-typedef ERR_VALUE (READ_INPUT_CALLBACK)(PONE_READ Read, void *Context);
+typedef ERR_VALUE (INPUT_READ_CALLBACK)(const ONE_READ *Read, void *Context);
 
 typedef struct _VCF_VARIANT {
 	char *Chrom;
@@ -77,7 +77,7 @@ ERR_VALUE fasta_read_seq(PFASTA_FILE FastaRecord, PREFSEQ_DATA Data);
 void fasta_free_seq(PREFSEQ_DATA Data);
 void fasta_free(PFASTA_FILE FastaRecord);
 
-ERR_VALUE input_get_reads(const char *Filename, const CONFIDENT_REGION *Region, READ_INPUT_CALLBACK *Callback, void *Context);
+ERR_VALUE input_get_reads(const char *Filename, const CONFIDENT_REGION *Region, INPUT_READ_CALLBACK *Callback, void *Context);
 
 ERR_VALUE input_refseq_to_regions(const char *RefSeq, const size_t RefSeqLen, PACTIVE_REGION *Regions, size_t *Count);
 ERR_VALUE input_get_region_by_offset(const PACTIVE_REGION Regions, const size_t Count, const uint64_t Offset, size_t *Index, uint64_t *RegionOffset);
