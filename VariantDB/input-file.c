@@ -499,7 +499,6 @@ ERR_VALUE input_variant_create(const char *Chrom, const char *ID, unsigned long 
 
 ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Filter, PGEN_ARRAY_VCF_VARIANT Array)
 {
-	size_t refLen = 0;
 	size_t altLen = 0;
 	char line[4096];
 	FILE *f = NULL;
@@ -519,14 +518,24 @@ ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Fil
 				if (ret == ERR_SUCCESS) {
 					pos = strtoull(fields.Data[1], NULL, 0) - 1;
 					quality = strtoul(fields.Data[5], NULL, 0);
-					ret = input_variant_create(fields.Data[0], fields.Data[2], pos, fields.Data[3], fields.Data[4], quality, &v);
-					if (Filter == NULL || input_variant_in_filter(Filter, &v)) {
+					
+					char *alt = fields.Data[4];
+					altLen = strlen(alt);
+					ret = input_variant_create(fields.Data[0], fields.Data[2], pos, fields.Data[3], alt, quality, &v);
+					if (Filter == NULL || input_variant_in_filter(Filter, &v))
 						ret = dym_array_push_back_VCF_VARIANT(Array, v);
-						if (ret == ERR_SUCCESS) {
-							fields.Data[0] = NULL;
-							fields.Data[2] = NULL;
-							fields.Data[3] = NULL;
-							fields.Data[4] = NULL;
+
+					if (ret == ERR_SUCCESS) {
+						for (size_t i = 0; i < altLen; ++i) {
+							if (alt[i] == ',') {
+								alt[i] = '\0';
+								ret = input_variant_create(fields.Data[0], fields.Data[2], pos, fields.Data[3], alt + i + 1, quality, &v);
+								if (Filter == NULL || input_variant_in_filter(Filter, &v))
+									ret = dym_array_push_back_VCF_VARIANT(Array, v);
+							
+								if (ret != ERR_SUCCESS)
+									break;
+							}
 						}
 					}
 
