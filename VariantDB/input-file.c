@@ -453,6 +453,8 @@ static int _variant_comparator(const VCF_VARIANT *A, const VCF_VARIANT *B)
 
 ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Filter, PGEN_ARRAY_VCF_VARIANT Array)
 {
+	size_t refLen = 0;
+	size_t altLen = 0;
 	char line[4096];
 	FILE *f = NULL;
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
@@ -467,11 +469,22 @@ ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Fil
 			if (ret == ERR_SUCCESS && *line != '\0' && *line != '#') {
 				ret = utils_split(line, '\t', &fields);
 				if (ret == ERR_SUCCESS) {
+					memset(&v, 0, sizeof(VCF_VARIANT));
 					v.Chrom = fields.Data[0];
-					v.Pos = strtoull(fields.Data[1], NULL, 0);
+					v.Pos = strtoull(fields.Data[1], NULL, 0) - 1;
 					v.ID = fields.Data[2];
 					v.Ref = fields.Data[3];
 					v.Alt = fields.Data[4];
+					refLen = strlen(v.Ref);
+					altLen = strlen(v.Alt);
+					if (refLen == 1 && altLen == 1)
+						v.Type = vcfvtSNP;
+					else if (refLen > altLen && altLen == 1)
+						v.Type = vcfvtDeletion;
+					else if (altLen > refLen && refLen == 1)
+						v.Type = vcfvtInsertion;
+					else v.Type = vcfvtReplace;
+
 					v.Quality = strtoul(fields.Data[5], NULL, 0);
 					if (Filter == NULL || input_variant_in_filter(Filter, &v)) {
 						ret = dym_array_push_back_VCF_VARIANT(Array, v);
@@ -552,6 +565,36 @@ boolean input_variant_in_filter(const VCF_VARIANT_FILTER *Filter, const VCF_VARI
 				index += intervalSize;
 			else index -= intervalSize;
 		}
+	}
+
+	return ret;
+}
+
+
+boolean input_variant_normalize(const char *Reference, PVCF_VARIANT Variant)
+{
+	boolean ret = FALSE;
+
+	switch (Variant->Type) {
+		case vcfvtSNP:
+			break;
+		case vcfvtInsertion: {
+			const size_t seqInsertedLen = strlen(Variant->Alt);
+			const char *seqInserted = Variant->Alt + 1;
+			const char *ref = Reference + Variant->Pos + 1;
+
+			while (memcmp(ref, seqInserted, seqInsertedLen*sizeof(char)) == 0) {
+				Variant->Pos -= seqInsertedLen;
+				ref -= seqInsertedLen;
+			}
+		} break;
+		case vcfvtDeletion: {
+			const char *ref = Reference + Variant->Pos + 1;
+		} break;
+		case vcfvtReplace:
+			break;
+		default:
+			break
 	}
 
 	return ret;

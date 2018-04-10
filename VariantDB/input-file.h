@@ -40,6 +40,15 @@ typedef struct _REFSEQ_DATA {
 
 typedef ERR_VALUE (INPUT_READ_CALLBACK)(const ONE_READ *Read, void *Context);
 
+typedef enum _EVCFVariantType {
+	vcfvtUnknown,
+	vcfvtSNP,
+	vcfvtInsertion,
+	vcfvtDeletion,
+	vcfvtReplace,
+	vcfvtMax,
+} EVCFVariantType, *PEVCFVariantType;
+
 typedef struct _VCF_VARIANT {
 	char *Chrom;
 	unsigned long long Pos;
@@ -48,6 +57,8 @@ typedef struct _VCF_VARIANT {
 	char *Alt;
 	unsigned long Quality;
 	size_t ReadSupport;
+	size_t TotalReadsAtPosition;
+	EVCFVariantType Type;
 	struct _VCF_VARIANT *Alternative;
 } VCF_VARIANT, *PVCF_VARIANT;
 
@@ -87,7 +98,8 @@ void input_free_regions(PACTIVE_REGION Regions, const size_t Count);
 
 ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Filter, PGEN_ARRAY_VCF_VARIANT Array);
 void input_Free_variants(PGEN_ARRAY_VCF_VARIANT Array);
-boolean input_variant_in_filter(const VCF_VARIANT_FILTER *Filter, const VCF_VARIANT *Variant);
+boolean input_variant_normalize(const char *Reference, PVCF_VARIANT Variant);
+boolean input_variant_normalize(PVCF_VARIANT Variant);
 
 ERR_VALUE input_get_bed(const char *FileName, const char *Chrom, PGEN_ARRAY_CONFIDENT_REGION Array);
 void input_free_bed(PGEN_ARRAY_CONFIDENT_REGION Array);
