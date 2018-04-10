@@ -579,22 +579,49 @@ boolean input_variant_normalize(const char *Reference, PVCF_VARIANT Variant)
 		case vcfvtSNP:
 			break;
 		case vcfvtInsertion: {
-			const size_t seqInsertedLen = strlen(Variant->Alt);
-			const char *seqInserted = Variant->Alt + 1;
-			const char *ref = Reference + Variant->Pos + 1;
+			const size_t altLen = strlen(Variant->Alt);
+			GEN_ARRAY_char altArray;
+			const char *ref = Reference + Variant->Pos;
 
-			while (memcmp(ref, seqInserted, seqInsertedLen*sizeof(char)) == 0) {
-				Variant->Pos -= seqInsertedLen;
-				ref -= seqInsertedLen;
+			dym_array_init_char(&altArray, 140);
+			for (size_t i = 0; i < altLen; ++i)
+				dym_array_push_back_char(&altArray, Variant->Alt[i]);
+
+			while (*ref == altArray.Data[altArray.ValidLength - 1]) {
+				--ref;
+				memmove(altArray.Data + 1, altArray.Data, altArray.ValidLength - 1);
+				altArray.Data[0] = *ref;
+				Variant->Pos--;
 			}
+
+			memcpy(Variant->Alt, altArray.Data, altLen);
+			Variant->Ref[0] = *ref;
+			dym_array_finit_char(&altArray);
 		} break;
 		case vcfvtDeletion: {
-			const char *ref = Reference + Variant->Pos + 1;
+			const size_t refLen = strlen(Variant->Ref);
+			GEN_ARRAY_char refArray;
+			const char *ref = Reference + Variant->Pos;
+
+			dym_array_init_char(&refArray, 140);
+			for (size_t i = 0; i < refLen; ++i)
+				dym_array_push_back_char(&refArray, Variant->Ref[i]);
+
+			while (*ref == refArray.Data[refArray.ValidLength - 1]) {
+				--ref;
+				memmove(refArray.Data + 1, refArray.Data, refArray.ValidLength - 1);
+				refArray.Data[0] = *ref;
+				Variant->Pos--;
+			}
+
+			memcpy(Variant->Ref, refArray.Data, refLen);
+			Variant->Alt[0] = *ref;
+			dym_array_finit_char(&refArray);
 		} break;
 		case vcfvtReplace:
 			break;
 		default:
-			break
+			break;
 	}
 
 	return ret;
