@@ -4,7 +4,9 @@
 #include "err.h"
 #include "utils.h"
 #include "options.h"
+#include "khash.h"
 #include "input-file.h"
+#include "ssw.h"
 #include "variantdb.h"
 
 
@@ -88,9 +90,23 @@ static GEN_ARRAY_CONFIDENT_REGION confidentRegions;
 static boolean _bedLoaded = FALSE;
 
 
-static ERR_VALUE _on_read_callback(PONE_READ Read, void *Context)
+KHASH_MAP_INIT_INT64(VariantTableType, PVCF_VARIANT);
+
+khash_t(VariantTableType) *_variantTable = NULL;
+
+
+static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 {
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
+	const char *ref = refData.Sequence + Read->Pos - (refData.StartPos - 1);
+	char *opString = NULL;
+	size_t opStringSize = 0;
+
+	ret = ssw_clever(ref, Read->ReadSequenceLen, Read->ReadSequence, Read->ReadSequenceLen, 2, -1, -1, &opString, &opStringSize);
+	if (ret == ERR_SUCCESS) {
+
+		utils_free(opString);
+	}
 
 	return ret;
 }
@@ -100,6 +116,7 @@ int main(int argc, char **argv)
 {
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
 
+	_variantTable = kh_init(VariantTableType);
 	fprintf(stderr, "[INFO]: Initializing the memory allocator...\n");
 	ret = utils_allocator_init(1);
 	if (ret == ERR_SUCCESS) {
@@ -135,6 +152,17 @@ int main(int argc, char **argv)
 				variantFilter.Regions = &region;
 				dym_array_init_VCF_VARIANT(&variants, 150);
 				ret = input_get_variants(_vcfFile, &variantFilter, &variants);
+				if (ret == ERR_SUCCESS) {
+					khiter_t it;
+					int res = 0;
+					PVCF_VARIANT v = variants.Data;
+					
+					for (size_t i = 0; i < variants.ValidLength; ++i) {
+						it = kh_put(VariantTableType, _variantTable, v->Pos, &res);
+						kh_value(_variantTable, it) = v;
+						++v;
+					}
+				}
 
 				_variantsLoaded = (ret == ERR_SUCCESS);
 			}
