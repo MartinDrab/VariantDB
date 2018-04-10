@@ -96,7 +96,9 @@ ERR_VALUE input_refseq_to_regions(const char *RefSeq, const size_t RefSeqLen, PA
 ERR_VALUE input_get_region_by_offset(const PACTIVE_REGION Regions, const size_t Count, const uint64_t Offset, size_t *Index, uint64_t *RegionOffset);
 void input_free_regions(PACTIVE_REGION Regions, const size_t Count);
 
+ERR_VALUE input_variant_create(const char *Chrom, const char *ID, unsigned long long Pos, const char *Ref, const char *Alt, unsigned long Quality, PVCF_VARIANT Variant);
 ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Filter, PGEN_ARRAY_VCF_VARIANT Array);
+void input_free_variant(const VCF_VARIANT *Variant);
 void input_Free_variants(PGEN_ARRAY_VCF_VARIANT Array);
 boolean input_variant_in_filter(const VCF_VARIANT_FILTER *Filter, const VCF_VARIANT *Variant);
 boolean input_variant_normalize(const char *Reference, PVCF_VARIANT Variant);

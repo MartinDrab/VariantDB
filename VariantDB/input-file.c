@@ -451,6 +451,52 @@ static int _variant_comparator(const VCF_VARIANT *A, const VCF_VARIANT *B)
 }
 
 
+ERR_VALUE input_variant_create(const char *Chrom, const char *ID, unsigned long long Pos, const char *Ref, const char *Alt, unsigned long Quality, PVCF_VARIANT Variant)
+{
+	ERR_VALUE ret = ERR_INTERNAL_ERROR;
+	const size_t refLen = strlen(Ref);
+	const size_t altLen = strlen(Alt);
+
+	memset(Variant, 0, sizeof(VCF_VARIANT));
+	ret = utils_copy_string(Chrom, &Variant->Chrom);
+	if (ret == ERR_SUCCESS)
+		ret = utils_copy_string(ID, &Variant->ID);
+
+	if (ret == ERR_SUCCESS)
+		ret = utils_copy_string(Ref, &Variant->Ref);
+
+	if (ret == ERR_SUCCESS)
+		ret = utils_copy_string(Alt, &Variant->Alt);
+
+	if (ret == ERR_SUCCESS) {
+		Variant->Pos = Pos;
+		Variant->Quality = Quality;
+		if (refLen == 1 && altLen == 1)
+			Variant->Type = vcfvtSNP;
+		else if (refLen > altLen && altLen == 1)
+			Variant->Type = vcfvtDeletion;
+		else if (altLen > refLen && refLen == 1)
+			Variant->Type = vcfvtInsertion;
+		else Variant->Type = vcfvtReplace;
+	}
+
+	if (ret != ERR_SUCCESS) {
+		if (Variant->Alt != NULL)
+			utils_free(Variant->Alt);
+
+		if (Variant->Ref != NULL)
+			utils_free(Variant->Ref);
+
+		if (Variant->ID != NULL)
+			utils_free(Variant->ID);
+
+		if (Variant->Chrom != NULL)
+			utils_free(Variant->Chrom);
+	}
+
+	return ret;
+}
+
 ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Filter, PGEN_ARRAY_VCF_VARIANT Array)
 {
 	size_t refLen = 0;
@@ -460,6 +506,8 @@ ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Fil
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
 	POINTER_ARRAY_char fields;
 	VCF_VARIANT v;
+	unsigned long long pos = 0;
+	unsigned long quality = 0;
 
 	pointer_array_init_char(&fields, 140);
 	ret = utils_fopen(FileName, FOPEN_MODE_READ, &f);
@@ -469,23 +517,9 @@ ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Fil
 			if (ret == ERR_SUCCESS && *line != '\0' && *line != '#') {
 				ret = utils_split(line, '\t', &fields);
 				if (ret == ERR_SUCCESS) {
-					memset(&v, 0, sizeof(VCF_VARIANT));
-					v.Chrom = fields.Data[0];
-					v.Pos = strtoull(fields.Data[1], NULL, 0) - 1;
-					v.ID = fields.Data[2];
-					v.Ref = fields.Data[3];
-					v.Alt = fields.Data[4];
-					refLen = strlen(v.Ref);
-					altLen = strlen(v.Alt);
-					if (refLen == 1 && altLen == 1)
-						v.Type = vcfvtSNP;
-					else if (refLen > altLen && altLen == 1)
-						v.Type = vcfvtDeletion;
-					else if (altLen > refLen && refLen == 1)
-						v.Type = vcfvtInsertion;
-					else v.Type = vcfvtReplace;
-
-					v.Quality = strtoul(fields.Data[5], NULL, 0);
+					pos = strtoull(fields.Data[1], NULL, 0) - 1;
+					quality = strtoul(fields.Data[5], NULL, 0);
+					ret = input_variant_create(fields.Data[0], fields.Data[2], pos, fields.Data[3], fields.Data[4], quality, &v);
 					if (Filter == NULL || input_variant_in_filter(Filter, &v)) {
 						ret = dym_array_push_back_VCF_VARIANT(Array, v);
 						if (ret == ERR_SUCCESS) {
@@ -513,16 +547,23 @@ ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Fil
 }
 
 
+void input_free_variant(const VCF_VARIANT *Variant)
+{
+	utils_free(Variant->Chrom);
+	utils_free(Variant->ID);
+	utils_free(Variant->Ref);
+	utils_free(Variant->Alt);
+
+	return;
+}
+
 void input_Free_variants(PGEN_ARRAY_VCF_VARIANT Array)
 {
 	const VCF_VARIANT *v = NULL;
 
 	v = Array->Data;
 	for (size_t i = 0; i < pointer_array_size(Array); ++i) {
-		utils_free(v->Chrom);
-		utils_free(v->ID);
-		utils_free(v->Ref);
-		utils_free(v->Alt);
+		input_free_variant(v);
 		++v;
 	}
 
