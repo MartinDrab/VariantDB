@@ -522,19 +522,24 @@ ERR_VALUE input_get_variants(const char *FileName, const VCF_VARIANT_FILTER *Fil
 					char *alt = fields.Data[4];
 					altLen = strlen(alt);
 					ret = input_variant_create(fields.Data[0], fields.Data[2], pos, fields.Data[3], alt, quality, &v);
-					if (Filter == NULL || input_variant_in_filter(Filter, &v))
+					if (Filter == NULL || input_variant_in_filter(Filter, &v)) {
 						ret = dym_array_push_back_VCF_VARIANT(Array, v);
 
-					if (ret == ERR_SUCCESS) {
-						for (size_t i = 0; i < altLen; ++i) {
-							if (alt[i] == ',') {
-								alt[i] = '\0';
-								ret = input_variant_create(fields.Data[0], fields.Data[2], pos, fields.Data[3], alt + i + 1, quality, &v);
-								if (Filter == NULL || input_variant_in_filter(Filter, &v))
-									ret = dym_array_push_back_VCF_VARIANT(Array, v);
-							
-								if (ret != ERR_SUCCESS)
-									break;
+						if (ret == ERR_SUCCESS) {
+							for (size_t i = 0; i < altLen; ++i) {
+								if (alt[i] == ',') {
+									v.Alt[i] = '\0';
+									ret = input_variant_create(fields.Data[0], fields.Data[2], pos, fields.Data[3], alt + i + 1, quality, &v);
+									if (ret == ERR_SUCCESS)
+										ret = dym_array_push_back_VCF_VARIANT(Array, v);
+
+									if (ret != ERR_SUCCESS)
+										break;
+
+									alt = v.Alt;
+									altLen = strlen(v.Alt);
+									i = 0;
+								}
 							}
 						}
 					}
@@ -591,7 +596,7 @@ boolean input_variant_in_filter(const VCF_VARIANT_FILTER *Filter, const VCF_VARI
 	size_t index = intervalStart + intervalSize / 2;
 
 	ret = (intervalSize == 0);
-	while (intervalSize > 0) {
+	while (!ret && intervalSize > 0) {
 		cmpResult = strcmp(Variant->Chrom, Filter->Regions[index].Chrom);
 		if (cmpResult == 0) {
 			cmpResult = (long long int)(Variant->Pos - Filter->Regions[index].Start);

@@ -98,12 +98,12 @@ khash_t(VariantTableType) *_variantTable = NULL;
 static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 {
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
-	const char *ref = refData.Sequence + Read->Pos - (refData.StartPos - 1);
+	const char *ref = refData.Sequence + Read->Pos - refData.StartPos;
 	char *opString = NULL;
 	size_t opStringSize = 0;
 	unsigned long long currentPos = Read->Pos;
 	unsigned long long variantPos = 0;
-	const char *currentOp = opString;
+	const char *currentOp = NULL;
 	GEN_ARRAY_char refArray;
 	GEN_ARRAY_char altArray;
 	size_t readSeqIndex = 0;
@@ -114,6 +114,7 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 	dym_array_init_char(&altArray, 140);
 	ret = ssw_clever(ref, Read->ReadSequenceLen, Read->ReadSequence, Read->ReadSequenceLen, 2, -1, -1, &opString, &opStringSize);
 	if (ret == ERR_SUCCESS) {
+		currentOp = opString;
 		while (*currentOp != '\0') {
 			switch (*currentOp) {
 				case 'I':
@@ -253,9 +254,10 @@ int main(int argc, char **argv)
 
 					for (size_t i = 0; i < variants.ValidLength; ++i) {
 						it = kh_put(VariantTableType, _variantTable, v->Pos, &res);
-						tmp = kh_value(_variantTable, it);
-						if (tmp != NULL)
+						if (res == 0) {
+							tmp = kh_value(_variantTable, it);
 							v->Alternative = tmp;
+						}
 
 						kh_value(_variantTable, it) = v;
 						++v;
