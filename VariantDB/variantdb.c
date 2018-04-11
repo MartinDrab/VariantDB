@@ -101,9 +101,81 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 	const char *ref = refData.Sequence + Read->Pos - (refData.StartPos - 1);
 	char *opString = NULL;
 	size_t opStringSize = 0;
-
+	unsigned long long currentPos = Read->Pos;
+	unsigned long long variantPos = 0;
+	const char *currentOp = opString;
+	GEN_ARRAY_char refArray;
+	GEN_ARRAY_char altArray;
+	size_t readSeqIndex = 0;
+	VCF_VARIANT v;
+	
 	ret = ssw_clever(ref, Read->ReadSequenceLen, Read->ReadSequence, Read->ReadSequenceLen, 2, -1, -1, &opString, &opStringSize);
 	if (ret == ERR_SUCCESS) {
+		while (*currentOp != '\0') {
+			switch (*currentOp) {
+				case 'I':
+					if (variantPos == 0)
+						variantPos = currentPos;
+
+					dym_array_push_back_char(&altArray, Read->ReadSequence[readSeqIndex]);
+					++readSeqIndex;
+					break;
+				case 'D':
+					if (variantPos == 0)
+						variantPos = currentPos;
+
+					dym_array_push_back_char(&refArray, *ref);
+					++ref;
+					++currentPos;
+					break;
+				case 'X':
+					if (variantPos == 0)
+						variantPos = currentPos;
+
+					dym_array_push_back_char(&refArray, *ref);
+					++ref;
+					++currentPos;
+					dym_array_push_back_char(&altArray, Read->ReadSequence[readSeqIndex]);
+					++readSeqIndex;
+					break;
+				case 'M':
+					if (variantPos != 0) {
+						if (gen_array_size(&altArray) == 0) {
+							variantPos--;
+							dym_array_push_back_char(&altArray, refData.Sequence[variantPos]);
+							dym_array_push_back_char(&refArray, '\0');
+							memmove(refArray.Data + 1, refArray.Data, refArray.ValidLength - 1);
+							refArray.Data[0] = refData.Sequence[variantPos];
+						}
+
+						if (gen_array_size(&refArray) == 0) {
+							variantPos--;
+							dym_array_push_back_char(&refArray, refData.Sequence[variantPos]);
+							dym_array_push_back_char(&altArray, '\0');
+							memmove(altArray.Data + 1, altArray.Data, altArray.ValidLength - 1);
+							altArray.Data[0] = refData.Sequence[variantPos];
+						}
+
+						dym_array_push_back_char(&refArray, '\0');
+						dym_array_push_back_char(&altArray, '\0');
+						ret = input_variant_create(Read->Extension->RName, NULL, variantPos, refArray.Data, altArray.Data, 30, &v);
+						if (ret == ERR_SUCCESS) {
+							input_variant_normalize(refData.Sequence, &v);
+						}
+
+						dym_array_clear_char(&refArray);
+						dym_array_clear_char(&altArray);
+						variantPos = 0;
+					}
+
+					++readSeqIndex;
+					++ref;
+					++currentPos;
+					break;
+			}
+
+			++currentOp;
+		}
 
 		utils_free(opString);
 	}
