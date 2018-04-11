@@ -160,7 +160,14 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 						dym_array_push_back_char(&altArray, '\0');
 						ret = input_variant_create(Read->Extension->RName, NULL, variantPos, refArray.Data, altArray.Data, 30, &v);
 						if (ret == ERR_SUCCESS) {
+							khiter_t it;
+
 							input_variant_normalize(refData.Sequence, &v);
+							it = kh_get(VariantTableType, _variantTable, variantPos);
+							if (it != kh_end(_variantTable))
+								kh_value(_variantTable, it)->ReadSupport++;
+
+							input_free_variant(&v);
 						}
 
 						dym_array_clear_char(&refArray);
