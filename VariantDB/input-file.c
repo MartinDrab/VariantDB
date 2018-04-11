@@ -678,6 +678,15 @@ boolean input_variant_normalize(const char *Reference, PVCF_VARIANT Variant)
 }
 
 
+boolean input_variant_equal(const VCF_VARIANT *A, const VCF_VARIANT *B)
+{
+	return (A->Pos == B->Pos &&
+		strcmp(A->Chrom, B->Chrom) == 0 &&
+		strcmp(A->Ref, B->Ref) == 0 &&
+		strcmp(A->Alt, B->Alt) == 0);
+}
+
+
 static int _bed_comparator(const CONFIDENT_REGION *A, const CONFIDENT_REGION *B)
 {
 	int ret = 0;

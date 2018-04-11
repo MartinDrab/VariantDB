@@ -102,6 +102,7 @@ void input_free_variant(const VCF_VARIANT *Variant);
 void input_Free_variants(PGEN_ARRAY_VCF_VARIANT Array);
 boolean input_variant_in_filter(const VCF_VARIANT_FILTER *Filter, const VCF_VARIANT *Variant);
 boolean input_variant_normalize(const char *Reference, PVCF_VARIANT Variant);
+boolean input_variant_equal(const VCF_VARIANT *A, const VCF_VARIANT *B);
 
 ERR_VALUE input_get_bed(const char *FileName, const char *Chrom, PGEN_ARRAY_CONFIDENT_REGION Array);
 void input_free_bed(PGEN_ARRAY_CONFIDENT_REGION Array);

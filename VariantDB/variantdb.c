@@ -108,7 +108,8 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 	GEN_ARRAY_char altArray;
 	size_t readSeqIndex = 0;
 	VCF_VARIANT v;
-	
+	khiter_t it;
+
 	ret = ssw_clever(ref, Read->ReadSequenceLen, Read->ReadSequence, Read->ReadSequenceLen, 2, -1, -1, &opString, &opStringSize);
 	if (ret == ERR_SUCCESS) {
 		while (*currentOp != '\0') {
@@ -127,6 +128,9 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 					dym_array_push_back_char(&refArray, *ref);
 					++ref;
 					++currentPos;
+					it = kh_get(VariantTableType, _variantTable, currentPos);
+					if (it != kh_end(_variantTable))
+						kh_value(_variantTable, it)->TotalReadsAtPosition++;
 					break;
 				case 'X':
 					if (variantPos == 0)
@@ -137,6 +141,9 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 					++currentPos;
 					dym_array_push_back_char(&altArray, Read->ReadSequence[readSeqIndex]);
 					++readSeqIndex;
+					it = kh_get(VariantTableType, _variantTable, currentPos);
+					if (it != kh_end(_variantTable))
+						kh_value(_variantTable, it)->TotalReadsAtPosition++;
 					break;
 				case 'M':
 					if (variantPos != 0) {
@@ -160,11 +167,10 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 						dym_array_push_back_char(&altArray, '\0');
 						ret = input_variant_create(Read->Extension->RName, NULL, variantPos, refArray.Data, altArray.Data, 30, &v);
 						if (ret == ERR_SUCCESS) {
-							khiter_t it;
-
 							input_variant_normalize(refData.Sequence, &v);
 							it = kh_get(VariantTableType, _variantTable, variantPos);
-							if (it != kh_end(_variantTable))
+							if (it != kh_end(_variantTable) &&
+								input_variant_equal(&v, kh_value(_variantTable, it)))
 								kh_value(_variantTable, it)->ReadSupport++;
 
 							input_free_variant(&v);
@@ -178,6 +184,9 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 					++readSeqIndex;
 					++ref;
 					++currentPos;
+					it = kh_get(VariantTableType, _variantTable, currentPos);
+					if (it != kh_end(_variantTable))
+						kh_value(_variantTable, it)->TotalReadsAtPosition++;
 					break;
 			}
 
