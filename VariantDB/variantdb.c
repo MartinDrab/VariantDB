@@ -110,6 +110,8 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 	VCF_VARIANT v;
 	khiter_t it;
 
+	dym_array_init_char(&refArray, 140);
+	dym_array_init_char(&altArray, 140);
 	ret = ssw_clever(ref, Read->ReadSequenceLen, Read->ReadSequence, Read->ReadSequenceLen, 2, -1, -1, &opString, &opStringSize);
 	if (ret == ERR_SUCCESS) {
 		while (*currentOp != '\0') {
@@ -195,6 +197,9 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 
 		utils_free(opString);
 	}
+
+	dym_array_finit_char(&altArray);
+	dym_array_finit_char(&refArray);
 
 	return ret;
 }
