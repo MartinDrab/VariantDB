@@ -94,6 +94,7 @@ KHASH_MAP_INIT_INT64(VariantTableType, PVCF_VARIANT);
 
 khash_t(VariantTableType) *_variantTable = NULL;
 
+static size_t _readsProcessed = 0;
 
 static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 {
@@ -201,6 +202,11 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 
 	dym_array_finit_char(&altArray);
 	dym_array_finit_char(&refArray);
+	_readsProcessed++;
+	if (_readsProcessed % 10000 == 0) {
+		fputc('.', stderr);
+		fflush(stderr);
+	}
 
 	return ret;
 }
@@ -275,11 +281,20 @@ int main(int argc, char **argv)
 				_bedLoaded = (ret == ERR_SUCCESS);
 			}
 
-			if (ret == ERR_SUCCESS)
+			if (ret == ERR_SUCCESS) {
+				fprintf(stderr, "[INFO]: Processing the reads...\n");
 				ret = input_get_reads(_samFile, &region, _on_read_callback, NULL);
+			}
 
 			if (ret == ERR_SUCCESS) {
+				PVCF_VARIANT v = variants.Data;
 
+				fprintf(stderr, "\n");
+				fprintf(stderr, "[INFO]: Processing variants...\n");
+				for (size_t i = 0; i < gen_array_size(&variants); ++i) {
+					fprintf(stdout, "%s\t%llu\t%s\t%s\t%s\t%zu\t%zu\n", v->Chrom, v->Pos, v->ID, v->Ref, v->Alt, v->ReadSupport, v->TotalReadsAtPosition);
+					++v;
+				}
 			}
 
 			if (_bedLoaded) {
