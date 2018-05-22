@@ -217,21 +217,16 @@ int main(int argc, char **argv)
 	ERR_VALUE ret = ERR_INTERNAL_ERROR;
 
 	_variantTable = kh_init(VariantTableType);
-	fprintf(stderr, "[INFO]: Initializing the memory allocator...\n");
 	ret = utils_allocator_init(1);
 	if (ret == ERR_SUCCESS) {
-		fprintf(stderr, "[INFO]: Initializing the command line parser...\n");
 		ret = options_module_init(37);
 		if (ret == ERR_SUCCESS) {
-			fprintf(stderr, "[INFO]: Parsing the command line...\n");
 			_cmd_option_init();
 			ret = options_parse_command_line(argc - 1, argv + 1);
-			if (ret == ERR_SUCCESS) {
-				fprintf(stderr, "[INFO]: Validating command line arguments...\n");
+			if (ret == ERR_SUCCESS)
 				ret = _cmd_optiion_parse();
-			}
 
-			if (ret == ERR_SUCCESS) {
+			if (ret == ERR_SUCCESS && !_help) {
 				fprintf(stderr, "[INFO]: Loading the reference...\n");
 				ret = fasta_load(_refFile, &refFile);
 				if (ret == ERR_SUCCESS) {
@@ -241,81 +236,82 @@ int main(int argc, char **argv)
 				}
 
 				_fastaLoaded = (ret == ERR_SUCCESS);
-			}
-			
-			if (ret == ERR_SUCCESS) {
-				fprintf(stderr, "[INFO]: Loading the VCF...\n");
-				region.Chrom = _chromosome;
-				region.Start = _regionStart;
-				region.End = _regionEnd;
-				variantFilter.RegionCount = 1;
-				variantFilter.Regions = &region;
-				dym_array_init_VCF_VARIANT(&variants, 150);
-				ret = input_get_variants(_vcfFile, &variantFilter, &variants);
+
 				if (ret == ERR_SUCCESS) {
-					khiter_t it;
-					int res = 0;
-					PVCF_VARIANT v = variants.Data;
-					PVCF_VARIANT tmp = NULL;
+					fprintf(stderr, "[INFO]: Loading the VCF...\n");
+					region.Chrom = _chromosome;
+					region.Start = _regionStart;
+					region.End = _regionEnd;
+					variantFilter.RegionCount = 1;
+					variantFilter.Regions = &region;
+					dym_array_init_VCF_VARIANT(&variants, 150);
+					ret = input_get_variants(_vcfFile, &variantFilter, &variants);
+					if (ret == ERR_SUCCESS) {
+						khiter_t it;
+						int res = 0;
+						PVCF_VARIANT v = variants.Data;
+						PVCF_VARIANT tmp = NULL;
 
-					for (size_t i = 0; i < variants.ValidLength; ++i) {
-						it = kh_put(VariantTableType, _variantTable, v->Pos, &res);
-						if (res == 0) {
-							tmp = kh_value(_variantTable, it);
-							v->Alternative = tmp;
+						for (size_t i = 0; i < variants.ValidLength; ++i) {
+							it = kh_put(VariantTableType, _variantTable, v->Pos, &res);
+							if (res == 0) {
+								tmp = kh_value(_variantTable, it);
+								v->Alternative = tmp;
+							}
+
+							kh_value(_variantTable, it) = v;
+							++v;
 						}
+					}
 
-						kh_value(_variantTable, it) = v;
+					_variantsLoaded = (ret == ERR_SUCCESS);
+				}
+
+				if (ret == ERR_SUCCESS && *_bedFile != '\0') {
+					fprintf(stderr, "[INFO]: Loading the BED...\n");
+					dym_array_init_CONFIDENT_REGION(&confidentRegions, 150);
+					ret = input_get_bed(_bedFile, _chromosome, &confidentRegions);
+
+					_bedLoaded = (ret == ERR_SUCCESS);
+				}
+
+				if (ret == ERR_SUCCESS) {
+					fprintf(stderr, "[INFO]: Processing the reads...\n");
+					ret = input_get_reads(_samFile, &region, _on_read_callback, NULL);
+				}
+
+				if (ret == ERR_SUCCESS) {
+					PVCF_VARIANT v = variants.Data;
+
+					fprintf(stderr, "\n");
+					fprintf(stderr, "[INFO]: Processing variants...\n");
+					for (size_t i = 0; i < gen_array_size(&variants); ++i) {
+						fprintf(stdout, "%s\t%llu\t%s\t%s\t%s\t%zu\t%zu\n", v->Chrom, v->Pos, v->ID, v->Ref, v->Alt, v->ReadSupport, v->TotalReadsAtPosition);
 						++v;
 					}
 				}
 
-				_variantsLoaded = (ret == ERR_SUCCESS);
-			}
-
-			if (ret == ERR_SUCCESS && *_bedFile != '\0') {
-				fprintf(stderr, "[INFO]: Loading the BED...\n");
-				dym_array_init_CONFIDENT_REGION(&confidentRegions, 150);
-				ret = input_get_bed(_bedFile, _chromosome, &confidentRegions);
-
-				_bedLoaded = (ret == ERR_SUCCESS);
-			}
-
-			if (ret == ERR_SUCCESS) {
-				fprintf(stderr, "[INFO]: Processing the reads...\n");
-				ret = input_get_reads(_samFile, &region, _on_read_callback, NULL);
-			}
-
-			if (ret == ERR_SUCCESS) {
-				PVCF_VARIANT v = variants.Data;
-
-				fprintf(stderr, "\n");
-				fprintf(stderr, "[INFO]: Processing variants...\n");
-				for (size_t i = 0; i < gen_array_size(&variants); ++i) {
-					fprintf(stdout, "%s\t%llu\t%s\t%s\t%s\t%zu\t%zu\n", v->Chrom, v->Pos, v->ID, v->Ref, v->Alt, v->ReadSupport, v->TotalReadsAtPosition);
-					++v;
+				if (_bedLoaded) {
+					fprintf(stderr, "[INFO]: Freeing the BED...\n");
+					input_free_bed(&confidentRegions);
+					dym_array_finit_CONFIDENT_REGION(&confidentRegions);
 				}
-			}
 
-			if (_bedLoaded) {
-				fprintf(stderr, "[INFO]: Freeing the BED...\n");
-				input_free_bed(&confidentRegions);
-				dym_array_finit_CONFIDENT_REGION(&confidentRegions);
-			}
+				if (_variantsLoaded) {
+					fprintf(stderr, "[INFO]: Freeing the VCF...\n");
+					input_Free_variants(&variants);
+					dym_array_finit_VCF_VARIANT(&variants);
+				}
 
-			if (_variantsLoaded) {
-				fprintf(stderr, "[INFO]: Freeing the VCF...\n");
-				input_Free_variants(&variants);
-				dym_array_finit_VCF_VARIANT(&variants);
-			}
+				if (_fastaLoaded) {
+					fprintf(stderr, "[INFO]: Freeing the reference...\n");
+					fasta_free_seq(&refData);
+					fasta_free(&refFile);
+				}
+			} else if (_help)
+				options_print_help();
+			else fprintf(stderr, "[INFO]: Use variantdb -h for help\n");
 
-			if (_fastaLoaded) {
-				fprintf(stderr, "[INFO]: Freeing the reference...\n");
-				fasta_free_seq(&refData);
-				fasta_free(&refFile);
-			}
-
-			fprintf(stderr, "[INFO]: Cleaning up the command line parser...\n");
 			options_module_finit();
 		}
 	}
