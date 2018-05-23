@@ -596,29 +596,37 @@ boolean input_variant_in_filter(const VCF_VARIANT_FILTER *Filter, const VCF_VARI
 	size_t index = intervalStart + intervalSize / 2;
 
 	ret = (intervalSize == 0);
-	while (!ret && intervalSize > 0) {
-		cmpResult = strcmp(Variant->Chrom, Filter->Regions[index].Chrom);
-		if (cmpResult == 0) {
-			cmpResult = (long long int)(Variant->Pos - Filter->Regions[index].Start);
-			if (cmpResult >= 0) {
-				ret = (Variant->Pos <= Filter->Regions[index].End);
-				if (!ret) {
-					intervalSize /= 2;
-					if (cmpResult > 0)
+	if (!ret) {
+		for (size_t i = 0; i < Filter->RegionCount; ++i) {
+			ret = (strcmp(Filter->Regions[i].Chrom, Variant->Chrom) == 0 &&
+				Filter->Regions[i].Start <= Variant->Pos && Variant->Pos <= Filter->Regions[i].End);
+			if (ret)
+				break;
+		}
+	}
+	else {
+		while (!ret && intervalSize > 0) {
+			cmpResult = strcmp(Variant->Chrom, Filter->Regions[index].Chrom);
+			if (cmpResult == 0) {
+				cmpResult = (long long int)(Variant->Pos - Filter->Regions[index].Start);
+				if (cmpResult >= 0) {
+					ret = (Variant->Pos <= Filter->Regions[index].End);
+					if (!ret) {
+						intervalSize /= 2;
 						index += intervalSize;
-					else index -= intervalSize;
+					}
 				}
-			} else {
+				else {
+					intervalSize /= 2;
+					index -= intervalSize;
+				}
+			}
+			else {
 				intervalSize /= 2;
 				if (cmpResult > 0)
 					index += intervalSize;
 				else index -= intervalSize;
 			}
-		} else {
-			intervalSize /= 2;
-			if (cmpResult > 0)
-				index += intervalSize;
-			else index -= intervalSize;
 		}
 	}
 
@@ -647,6 +655,7 @@ boolean input_variant_normalize(const char *Reference, PVCF_VARIANT Variant)
 				memmove(altArray.Data + 1, altArray.Data, altArray.ValidLength - 1);
 				altArray.Data[0] = *ref;
 				Variant->Pos--;
+				ret = TRUE;
 			}
 
 			memcpy(Variant->Alt, altArray.Data, altLen);
@@ -667,6 +676,7 @@ boolean input_variant_normalize(const char *Reference, PVCF_VARIANT Variant)
 				memmove(refArray.Data + 1, refArray.Data, refArray.ValidLength - 1);
 				refArray.Data[0] = *ref;
 				Variant->Pos--;
+				ret = TRUE;
 			}
 
 			memcpy(Variant->Ref, refArray.Data, refLen);
@@ -685,10 +695,11 @@ boolean input_variant_normalize(const char *Reference, PVCF_VARIANT Variant)
 
 boolean input_variant_equal(const VCF_VARIANT *A, const VCF_VARIANT *B)
 {
-	return (A->Pos == B->Pos &&
-		strcmp(A->Chrom, B->Chrom) == 0 &&
-		strcmp(A->Ref, B->Ref) == 0 &&
-		strcmp(A->Alt, B->Alt) == 0);
+	return (A->Pos == B->Pos
+		&& strcmp(A->Chrom, B->Chrom) == 0
+		&& strcmp(A->Ref, B->Ref) == 0
+		&& strcmp(A->Alt, B->Alt) == 0
+	);
 }
 
 
@@ -704,7 +715,7 @@ static int _bed_comparator(const CONFIDENT_REGION *A, const CONFIDENT_REGION *B)
 }
 
 
-ERR_VALUE input_get_bed(const char *FileName, const char *Chrom, PGEN_ARRAY_CONFIDENT_REGION Array)
+ERR_VALUE input_get_bed(const char *FileName, const CONFIDENT_REGION *Area, PGEN_ARRAY_CONFIDENT_REGION Array)
 {
 	char line[4096];
 	FILE *f = NULL;
@@ -723,7 +734,8 @@ ERR_VALUE input_get_bed(const char *FileName, const char *Chrom, PGEN_ARRAY_CONF
 					cr.Chrom = fields.Data[0];
 					cr.Start = strtoull(fields.Data[1], NULL, 0);
 					cr.End = strtoull(fields.Data[2], NULL, 0);
-					if (Chrom == NULL || *Chrom == '\0' || strcmp(cr.Chrom, Chrom) == 0) {
+					if ((Area == NULL || *Area->Chrom == '\0' || strcmp(cr.Chrom, Area->Chrom) == 0) &&
+						Area->Start <= cr.Start && cr.End <= Area->End) {
 						ret = dym_array_push_back_CONFIDENT_REGION(Array, cr);
 						if (ret == ERR_SUCCESS)
 							fields.Data[0] = NULL;

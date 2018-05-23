@@ -235,15 +235,32 @@ int main(int argc, char **argv)
 						fasta_free(&refFile);
 				}
 
+				fprintf(stderr, "[INFO]: Chromosome is set to %s\n", _chromosome);
+				fprintf(stderr, "[INFO]: Area start is set to %llu\n", _regionStart);
+				fprintf(stderr, "[INFO]: Area end is set to %llu\n", _regionEnd);
+				region.Chrom = _chromosome;
+				region.Start = _regionStart;
+				region.End = _regionEnd;
 				_fastaLoaded = (ret == ERR_SUCCESS);
+				if (ret == ERR_SUCCESS && *_bedFile != '\0') {
+					fprintf(stderr, "[INFO]: Loading the BED...\n");
+					dym_array_init_CONFIDENT_REGION(&confidentRegions, 150);
+					ret = input_get_bed(_bedFile, &region, &confidentRegions);
+					_bedLoaded = (ret == ERR_SUCCESS);
+					if (_bedLoaded)
+						fprintf(stderr, "[INFO]: %zu confidence regions loaded\n", gen_array_size(&confidentRegions));
+				}
 
 				if (ret == ERR_SUCCESS) {
 					fprintf(stderr, "[INFO]: Loading the VCF...\n");
-					region.Chrom = _chromosome;
-					region.Start = _regionStart;
-					region.End = _regionEnd;
-					variantFilter.RegionCount = 1;
-					variantFilter.Regions = &region;
+					if (!_bedLoaded) {
+						variantFilter.RegionCount = 1;
+						variantFilter.Regions = &region;
+					} else {
+						variantFilter.RegionCount = gen_array_size(&confidentRegions);
+						variantFilter.Regions = confidentRegions.Data;
+					}
+
 					dym_array_init_VCF_VARIANT(&variants, 150);
 					ret = input_get_variants(_vcfFile, &variantFilter, &variants);
 					if (ret == ERR_SUCCESS) {
@@ -252,7 +269,10 @@ int main(int argc, char **argv)
 						PVCF_VARIANT v = variants.Data;
 						PVCF_VARIANT tmp = NULL;
 
-						for (size_t i = 0; i < variants.ValidLength; ++i) {
+						for (size_t i = 0; i < gen_array_size(&variants); ++i) {
+							if (input_variant_normalize(refData.Sequence, v))
+								fprintf(stderr, "[ERROR]: Normalized:\t%llu\t%s\t%s\n", v->Pos + 1, v->Ref, v->Alt);
+							
 							it = kh_put(VariantTableType, _variantTable, v->Pos, &res);
 							if (res == 0) {
 								tmp = kh_value(_variantTable, it);
@@ -265,14 +285,8 @@ int main(int argc, char **argv)
 					}
 
 					_variantsLoaded = (ret == ERR_SUCCESS);
-				}
-
-				if (ret == ERR_SUCCESS && *_bedFile != '\0') {
-					fprintf(stderr, "[INFO]: Loading the BED...\n");
-					dym_array_init_CONFIDENT_REGION(&confidentRegions, 150);
-					ret = input_get_bed(_bedFile, _chromosome, &confidentRegions);
-
-					_bedLoaded = (ret == ERR_SUCCESS);
+					if (_variantsLoaded)
+						fprintf(stderr, "[INFO]: %zu variants loaded\n", gen_array_size(&variants));
 				}
 
 				if (ret == ERR_SUCCESS) {
@@ -286,7 +300,7 @@ int main(int argc, char **argv)
 					fprintf(stderr, "\n");
 					fprintf(stderr, "[INFO]: Processing variants...\n");
 					for (size_t i = 0; i < gen_array_size(&variants); ++i) {
-						fprintf(stdout, "%s\t%llu\t%s\t%s\t%s\t%zu\t%zu\n", v->Chrom, v->Pos, v->ID, v->Ref, v->Alt, v->ReadSupport, v->TotalReadsAtPosition);
+						fprintf(stdout, "%s\t%llu\t%s\t%s\t%s\t%zu\t%zu\n", v->Chrom, v->Pos + 1, v->ID, v->Ref, v->Alt, v->ReadSupport, v->TotalReadsAtPosition);
 						++v;
 					}
 				}
