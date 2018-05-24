@@ -19,6 +19,8 @@ static uint64_t _regionStart = 0;
 static uint64_t _regionEnd = (uint64_t)-1;
 static boolean _help = FALSE;
 static boolean _verbose = FALSE;
+static boolean _noNormalization = FALSE;
+static uint32_t _maxMs = 1;
 
 
 static void _cmd_option_init(void)
@@ -32,6 +34,8 @@ static void _cmd_option_init(void)
 	CMD_OPTION_INIT(VDB_OPTION_STOP, UInt64, (uint64_t)-1);
 	CMD_OPTION_INIT(VDB_OPTION_HELP, Boolean, FALSE);
 	CMD_OPTION_INIT(VDB_OPTION_VERBOSE, Boolean, FALSE);
+	CMD_OPTION_INIT(VDB_OPTION_DONT_NORMALIZE, Boolean, FALSE);
+	CMD_OPTION_INIT(VDB_OPTION_MAX_MS, UInt32, 1);
 
 	return;
 }
@@ -48,7 +52,8 @@ static ERR_VALUE _cmd_optiion_parse(void)
 	CMD_OPTION_GET(VDB_OPTION_STOP, UInt64, &_regionEnd);
 	CMD_OPTION_GET(VDB_OPTION_HELP, Boolean, &_help);
 	CMD_OPTION_GET(VDB_OPTION_VERBOSE, Boolean, &_verbose);
-
+	CMD_OPTION_GET(VDB_OPTION_DONT_NORMALIZE, Boolean, &_noNormalization);
+	CMD_OPTION_GET(VDB_OPTION_MAX_MS, UInt32, &_maxMs);
 	if (_help)
 		return ERR_SUCCESS;
 
@@ -89,7 +94,6 @@ static boolean _variantsLoaded = FALSE;
 static GEN_ARRAY_CONFIDENT_REGION confidentRegions;
 static boolean _bedLoaded = FALSE;
 
-
 KHASH_MAP_INIT_INT64(VariantTableType, PVCF_VARIANT);
 
 khash_t(VariantTableType) *_variantTable = NULL;
@@ -111,6 +115,8 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 	size_t readSeqIndex = 0;
 	PVCF_VARIANT v = NULL;
 	khiter_t it;
+	size_t matchLength = 0;
+	uint8_t qual = 0;
 
 	dym_array_init_char(&refArray, 140);
 	dym_array_init_char(&altArray, 140);
@@ -120,15 +126,21 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 		while (*currentOp != '\0') {
 			switch (*currentOp) {
 				case 'I':
-					if (variantPos == 0)
+					matchLength = 0;
+					if (variantPos == 0) {
 						variantPos = currentPos;
+						qual = Read->Quality[readSeqIndex];
+					}
 
 					dym_array_push_back_char(&altArray, Read->ReadSequence[readSeqIndex]);
 					++readSeqIndex;
 					break;
 				case 'D':
-					if (variantPos == 0)
+					matchLength = 0;
+					if (variantPos == 0) {
 						variantPos = currentPos;
+						qual = Read->Quality[readSeqIndex];
+					}
 
 					dym_array_push_back_char(&refArray, *ref);
 					++ref;
@@ -138,8 +150,11 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 						kh_value(_variantTable, it)->TotalReadsAtPosition++;
 					break;
 				case 'X':
-					if (variantPos == 0)
+					matchLength = 0;
+					if (variantPos == 0) {
 						variantPos = currentPos;
+						qual = Read->Quality[readSeqIndex];
+					}
 
 					dym_array_push_back_char(&refArray, *ref);
 					++ref;
@@ -152,72 +167,82 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 					break;
 				case 'M':
 					if (variantPos != 0) {
-						if (gen_array_size(&altArray) == 0) {
-							variantPos--;
-							dym_array_push_back_char(&altArray, refData.Sequence[variantPos]);
+						++matchLength;
+						if (matchLength >= _maxMs) {
+							if (gen_array_size(&altArray) == 0) {
+								variantPos--;
+								dym_array_push_back_char(&altArray, refData.Sequence[variantPos]);
+								dym_array_push_back_char(&refArray, '\0');
+								memmove(refArray.Data + 1, refArray.Data, refArray.ValidLength - 1);
+								refArray.Data[0] = refData.Sequence[variantPos];
+							}
+
+							if (gen_array_size(&refArray) == 0) {
+								variantPos--;
+								dym_array_push_back_char(&refArray, refData.Sequence[variantPos]);
+								dym_array_push_back_char(&altArray, '\0');
+								memmove(altArray.Data + 1, altArray.Data, altArray.ValidLength - 1);
+								altArray.Data[0] = refData.Sequence[variantPos];
+							}
+
 							dym_array_push_back_char(&refArray, '\0');
-							memmove(refArray.Data + 1, refArray.Data, refArray.ValidLength - 1);
-							refArray.Data[0] = refData.Sequence[variantPos];
-						}
-
-						if (gen_array_size(&refArray) == 0) {
-							variantPos--;
-							dym_array_push_back_char(&refArray, refData.Sequence[variantPos]);
 							dym_array_push_back_char(&altArray, '\0');
-							memmove(altArray.Data + 1, altArray.Data, altArray.ValidLength - 1);
-							altArray.Data[0] = refData.Sequence[variantPos];
-						}
-
-						dym_array_push_back_char(&refArray, '\0');
-						dym_array_push_back_char(&altArray, '\0');
-						ret = utils_malloc(sizeof(VCF_VARIANT), &v);
-						if (ret == ERR_SUCCESS) {
-							memset(v, 0, sizeof(VCF_VARIANT));
-							ret = input_variant_create(Read->Extension->RName, NULL, variantPos, refArray.Data, altArray.Data, 30, v);
+							ret = utils_malloc(sizeof(VCF_VARIANT), &v);
 							if (ret == ERR_SUCCESS) {
-								input_variant_normalize(refData.Sequence, v);
-								it = kh_get(VariantTableType, _variantTable, v->Pos);
-								if (it != kh_end(_variantTable) &&
-									input_variant_equal(v, kh_value(_variantTable, it))) {
-									kh_value(_variantTable, it)->ReadSupport++;
-									input_free_variant(v);
-									utils_free(v);
-									v = NULL;
-								} else {
-									int res = 0;
-									PVCF_VARIANT tmp = NULL;
-									PVCF_VARIANT tmp2 = NULL;
+								memset(v, 0, sizeof(VCF_VARIANT));
+								ret = input_variant_create(Read->Extension->RName, NULL, variantPos, refArray.Data, altArray.Data, qual, v);
+								if (ret == ERR_SUCCESS) {
+									if (!_noNormalization)
+										input_variant_normalize(refData.Sequence, v);
 
-									it = kh_put(VariantTableType, _nearVariantTable, v->Pos, &res);
-									if (res == 0) {
-										tmp = kh_value(_nearVariantTable, it);
-										tmp2 = tmp;
-										while (tmp2 != NULL) {
-											if (input_variant_equal(tmp2, v)) {
-												++tmp2->ReadSupport;
-												input_free_variant(v);
-												utils_free(v);
-												v = NULL;
-												break;
+									it = kh_get(VariantTableType, _variantTable, v->Pos);
+									if (it != kh_end(_variantTable) &&
+										input_variant_equal(v, kh_value(_variantTable, it))) {
+										kh_value(_variantTable, it)->ReadSupport++;
+										input_free_variant(v);
+										utils_free(v);
+										v = NULL;
+									} else {
+										int res = 0;
+										PVCF_VARIANT tmp = NULL;
+										PVCF_VARIANT tmp2 = NULL;
+
+										v->ReadSupport = 1;
+										v->TotalReadsAtPosition = 1;
+										it = kh_put(VariantTableType, _nearVariantTable, v->Pos, &res);
+										if (res == 0) {
+											tmp = kh_value(_nearVariantTable, it);
+											tmp2 = tmp;
+											while (tmp2 != NULL) {
+												if (input_variant_equal(tmp2, v)) {
+													++tmp2->ReadSupport;
+													input_free_variant(v);
+													utils_free(v);
+													v = NULL;
+													break;
+												}
+
+												tmp2 = tmp2->Alternative;
 											}
 
-											tmp2 = tmp2->Alternative;
+											if (tmp2 == NULL) {
+												v->Alternative = tmp->Alternative;
+												tmp->Alternative = v;
+											}
 										}
 
-										if (tmp2 == NULL)
-											v->Alternative = tmp;
+										if (v != NULL)
+											kh_value(_nearVariantTable, it) = v;
+
 									}
-
-									if (v != NULL)
-										kh_value(_nearVariantTable, it) = v;
-
 								}
 							}
-						}
 
-						dym_array_clear_char(&refArray);
-						dym_array_clear_char(&altArray);
-						variantPos = 0;
+							dym_array_clear_char(&refArray);
+							dym_array_clear_char(&altArray);
+							variantPos = 0;
+							matchLength = 0;
+						}
 					}
 
 					++readSeqIndex;
@@ -337,12 +362,12 @@ int main(int argc, char **argv)
 					fprintf(stderr, "\n");
 					fprintf(stderr, "[INFO]: Processing variants...\n");
 					for (size_t i = 0; i < gen_array_size(&variants); ++i) {
-						fprintf(stdout, "%s\t%llu\t%s\t%s\t%s\t%zu\t%zu\n", v->Chrom, v->Pos + 1, v->ID, v->Ref, v->Alt, v->ReadSupport, v->TotalReadsAtPosition);
+						fprintf(stdout, "%s\t%llu\t%s\t%s\t%s\t%lu\t%zu\t%zu\n", v->Chrom, v->Pos + 1, v->ID, v->Ref, v->Alt, v->Quality, v->ReadSupport, v->TotalReadsAtPosition);
 						for (size_t j = v->Pos - 10; j < v->Pos + 10; ++j) {
 							khiter_t it = kh_get(VariantTableType, _nearVariantTable, j);
 							if (it != kh_end(_nearVariantTable)) {
 								tmp = kh_val(_nearVariantTable, it);
-								fprintf(stdout, "\t%s\t%llu\t%s\t%s\t%s\t%zu\t%zu\n", tmp->Chrom, tmp->Pos + 1, tmp->ID, tmp->Ref, tmp->Alt, tmp->ReadSupport, tmp->TotalReadsAtPosition);
+								fprintf(stdout, "\t%s\t%llu\t%s\t%s\t%s\t%lu\t%zu\t%zu\n", tmp->Chrom, tmp->Pos + 1, tmp->ID, tmp->Ref, tmp->Alt, tmp->Quality, tmp->ReadSupport, tmp->TotalReadsAtPosition);
 							}
 						}
 						++v;
