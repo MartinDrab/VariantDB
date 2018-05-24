@@ -120,11 +120,12 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 
 	dym_array_init_char(&refArray, 140);
 	dym_array_init_char(&altArray, 140);
-	ret = ssw_clever(ref, Read->ReadSequenceLen, Read->ReadSequence, Read->ReadSequenceLen, 2, -1, -1, &opString, &opStringSize);
-	if (ret == ERR_SUCCESS) {
-		currentOp = opString;
-		while (*currentOp != '\0') {
-			switch (*currentOp) {
+	while (readSeqIndex < Read->ReadSequenceLen) {
+		ret = ssw_clever(ref, Read->ReadSequenceLen - readSeqIndex, Read->ReadSequence + readSeqIndex, Read->ReadSequenceLen - readSeqIndex, 2, -1, -1, &opString, &opStringSize);
+		if (ret == ERR_SUCCESS) {
+			currentOp = opString;
+			while (*currentOp != '\0') {
+				switch (*currentOp) {
 				case 'I':
 					matchLength = 0;
 					if (variantPos == 0) {
@@ -202,7 +203,8 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 										input_free_variant(v);
 										utils_free(v);
 										v = NULL;
-									} else {
+									}
+									else {
 										int res = 0;
 										PVCF_VARIANT tmp = NULL;
 										PVCF_VARIANT tmp2 = NULL;
@@ -225,10 +227,8 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 												tmp2 = tmp2->Alternative;
 											}
 
-											if (tmp2 == NULL) {
-												v->Alternative = tmp->Alternative;
-												tmp->Alternative = v;
-											}
+											if (tmp2 == NULL)
+												v->Alternative = tmp;
 										}
 
 										if (v != NULL)
@@ -252,12 +252,13 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 					if (it != kh_end(_variantTable))
 						kh_value(_variantTable, it)->TotalReadsAtPosition++;
 					break;
+				}
+
+				++currentOp;
 			}
 
-			++currentOp;
+			utils_free(opString);
 		}
-
-		utils_free(opString);
 	}
 
 	dym_array_finit_char(&altArray);
@@ -267,7 +268,7 @@ static ERR_VALUE _on_read_callback(const ONE_READ *Read, void *Context)
 		fputc('.', stderr);
 		fflush(stderr);
 	}
-
+	
 	return ret;
 }
 
@@ -367,7 +368,10 @@ int main(int argc, char **argv)
 							khiter_t it = kh_get(VariantTableType, _nearVariantTable, j);
 							if (it != kh_end(_nearVariantTable)) {
 								tmp = kh_val(_nearVariantTable, it);
-								fprintf(stdout, "\t%s\t%llu\t%s\t%s\t%s\t%lu\t%zu\t%zu\n", tmp->Chrom, tmp->Pos + 1, tmp->ID, tmp->Ref, tmp->Alt, tmp->Quality, tmp->ReadSupport, tmp->TotalReadsAtPosition);
+								while (tmp != NULL) {
+									fprintf(stdout, "\t%s\t%llu\t%s\t%s\t%s\t%lu\t%zu\t%zu\n", tmp->Chrom, tmp->Pos + 1, tmp->ID, tmp->Ref, tmp->Alt, tmp->Quality, tmp->ReadSupport, tmp->TotalReadsAtPosition);
+									tmp = tmp->Alternative;
+								}
 							}
 						}
 						++v;
